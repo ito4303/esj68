@@ -97,5 +97,23 @@ traceplot(stanfit2)
 ```
 
 
+### use bivariate poisson and reduce_sum
+
+```{r}
+stan_data <- list(M = M, J = J, K = 100, N = N, C = C)
+stan_model3 <- cmdstan_model("simplest_N-mixture3.stan",
+                             cpp_options = list(stan_threads = TRUE))
+fit_stan3 <- stan_model3$sample(data = stan_data,
+                                chains = 4,
+                                parallel_chains = getOption("mc.cores", 1),
+                                threads_per_chain = 3,
+                                iter_warmup = 1000, iter_sampling = 1000,
+                                refresh = 500)
+fit_stan3$cmdstan_diagnose()
+fit_stan3$summary()
+fit_stan3$time()
+stanfit3 <- rstan::read_stan_csv(fit_stan3$output_files())
+traceplot(stanfit3)
+```
 
 

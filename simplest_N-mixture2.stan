@@ -1,19 +1,37 @@
 functions {
-  real partial_sum(int[] dummy_k,
-                   int start, int end,
-                   int[] count,
-                   real lambda,
-                   real p) {
-    vector[end - start + 1] lp;
+  /**
+   * Return log probability of N-mixture model for a site
+   * 
+   * @param count    Count
+   * @param num_rep  Number of replications
+   * @param max_n    Maximum abundance
+   * @param lambda   Mean abundance
+   * @param p        Detection probability
+   *
+   * @return         Log probability
+   */
+  real n_mixture_lpmf(int[] count, int max_n,
+                      real lambda, real p) {
+                 
+    int c_max = max(count);
+    vector[max_n + 1] lp;
 
-    for (k in start:end) {
-      if (k - 1 < max(count))
-        lp[k - start + 1] = negative_infinity();
-      else
-        lp[k - start + 1] = poisson_lpmf(k - 1 | lambda)
-                            + binomial_lpmf(count | k - 1, p);
-    }
+    for (k in 0:(c_max - 1))
+      lp[k + 1] = negative_infinity();
+    for (k in c_max:max_n) 
+      lp[k + 1] = poisson_lpmf(k | lambda) + binomial_lpmf(count | k, p);
     return log_sum_exp(lp);
+  }
+
+  real partial_sum(int[] site,
+                   int start, int end,
+                   int[, ] count,
+                   int max_n, real lambda, real p) {
+    real lp = 0;
+
+    for (m in start:end)
+      lp = lp + n_mixture_lpmf(count[m] | max_n, lambda, p);
+    return lp;
   }
 }
 
@@ -26,7 +44,7 @@ data {
 }
 
 transformed data {
-  int dummy_k[K + 1] = rep_array(0, K + 1);
+  int site[M] = rep_array(0, M); //dummy for site index
 }
 
 parameters {
@@ -35,12 +53,8 @@ parameters {
 }
 
 model {
-  int grainsize = 50;
+  int grainsize = 1;
 
-  lambda ~ normal(0, 5);
-  for (m in 1:M) {
-    target += reduce_sum_static(partial_sum, dummy_k, grainsize, C[m], lambda, p);
-//    target += partial_sum(dummy_k, 1, K + 1, C[m], lambda, p);
-
-  }
+  lambda ~ normal(0, 20);
+  target += reduce_sum(partial_sum, site, grainsize, C, K, lambda, p);
 }
