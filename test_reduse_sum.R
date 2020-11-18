@@ -24,7 +24,7 @@ fit_stan1 <- stan_model1$sample(data = stan_data,
                                 chains = 4, parallel_chains = getOption("mc.cores", 1),
                                 iter_warmup = 1000, iter_sampling = 1000,
                                 refresh = 500)
-fit_stan1$summary(variables = c("lambda", "p"))
+#fit_stan1$summary(variables = c("lambda", "p"))
 fit_stan1$time()
 
 ### use reduce_sum
@@ -39,5 +39,5 @@ fit_stan2 <- stan_model2$sample(data = stan_data,
                                 iter_warmup = 1000, iter_sampling = 1000,
                                 refresh = 500)
 fit_stan2$cmdstan_diagnose()
-fit_stan2$summary(variables = c("lambda", "p"))
+#fit_stan2$summary(variables = c("lambda", "p"))
 fit_stan2$time()
