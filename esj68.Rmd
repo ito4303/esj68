@@ -15,68 +15,82 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 library(unmarked)
 library(rjags)
-library(rstan)
-options(mc.cores = parallel::detectCores())
 library(cmdstanr)
-set_cmdstan_path("/usr/local/cmdstan")
+options(mc.cores = parallel::detectCores())
 ```
 
 
-# はじめに
+## 目次
 
+\tableofcontents[hideallsubsections]
 
 # 占有モデル
 
 ## 模擬データの生成
 
 ```{r gen_site_occ_data, echo=TRUE}
-lambda <- 2.5 # mean abundance
-p <- 0.4      # detection probability
-M <- 150      # Number of sites
-J <- 2        # Number of replications
+set.seed(24)                  # So we all get same data set
+M <- 100                      # Number of sites
+J <- 2                        # Number of presence/absence measurements
+y <- matrix(NA, nrow = M, ncol = J) # to contain the obs. data
 
-set.seed(123)
-N <- rpois(M, lambda) # abundance for each site
-C <- matrix(0, nrow = M, ncol = J) # count for each site
-for (j in 1:J)
-  C[, j] <-rbinom(M, N, p)
+# Parameter values
+psi <- 0.8                    # Probability of occupancy or presence
+p <- 0.5                      # Probability of detection
+
+# Generate presence/absence data (the truth)
+z <- rbinom(n = M, size = 1, prob = psi)  # R has no Bernoulli
+
+# Generate detection/nondetection data (i.e. presence/absence measurements)
+for(j in 1:J){
+   y[,j] <- rbinom(n = M, size = 1, prob = z*p)
+}
 ```
+
 
 ## データ
 
-```{r view_site_occ_data1}
-head(cbind(N, C))
+```{r view_site_occ_data1, echo=TRUE}
+sum(z)                        # True number of occupied sites
+```
+
+```{r view_site_occ_data2, echo=TRUE}
+sum(apply(y, 1, max))         # Observed number of occupied sites
+```
+
+```{r view_site_occ_data3, echo=TRUE}
+head(cbind(z=z, y))           # Truth and measurements for first 6 sites
 ```
 
 ## unmarked
 
 ```{r}
-unmarked_data <- unmarkedFramePCount(y = C)
-summary(unmarked_data)
+umf <- unmarkedFrameOccu(y = y)
+summary(umf)
 ```
 
 ##  あてはめ
 
 ```{r}
-fit_umk <- pcount(~1 ~1, data = unmarked_data, K = 100)
+fm1 <- occu(~ 1 ~ 1, data = umf)
 ```
 
 ## 結果
 
 ```{r}
-print(fit_umk)
+print(fm1)
 ```
 
 ---
 
 ```{r}
-backTransform(fit_umk, "state")
+backTransform(fm1, "state")
 ```
 
 ---
 
 ```{r}
-backTransform(fit_umk, "det")
+backTransform(fm1, "det")
 ```
 
 ## JAGS
@@ -84,16 +98,20 @@ backTransform(fit_umk, "det")
 ```
 model {
   for (m in 1:M) {
-    N[m] ~ dpois(lambda)
+    z[m] ~ dbern(psi)
     for (j in 1:J) {
-      C[m, j] ~ dbinom(p, N[m])
+      y[m, j] ~ dbern(z[m] * p)
     }
   }
   # priors
-  lambda ~ dgamma(0.001, 0.001)
+  psi ~ dunif(0, 1)
   p ~ dunif(0, 1)
 }
 ```
+
+## Fit
+
+
 
 ## Stan
 
