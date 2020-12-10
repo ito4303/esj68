@@ -29,67 +29,65 @@ options(mc.cores = parallel::detectCores())
 ## 模擬データの生成
 
 ```{r gen_site_occ_data, echo=TRUE}
-set.seed(24)                  # So we all get same data set
-M <- 100                      # Number of sites
-J <- 2                        # Number of presence/absence measurements
-y <- matrix(NA, nrow = M, ncol = J) # to contain the obs. data
-
-# Parameter values
-psi <- 0.8                    # Probability of occupancy or presence
-p <- 0.5                      # Probability of detection
-
-# Generate presence/absence data (the truth)
-z <- rbinom(n = M, size = 1, prob = psi)  # R has no Bernoulli
-
-# Generate detection/nondetection data (i.e. presence/absence measurements)
-for(j in 1:J){
-   y[,j] <- rbinom(n = M, size = 1, prob = z*p)
+set.seed(123)
+M <- 100      # Number of sites
+J <- 2        # Number of presence/absence meas.
+y <- matrix(NA, nrow = M, ncol = J)
+psi <- 0.8    # Prob. occupancy or presence
+p <- 0.5      # Prob. detection
+z <- rbinom(n = M, size = 1, prob = psi)
+for(j in 1:J) {
+   y[, j] <- rbinom(n = M, size = 1, prob = z * p)
 }
 ```
 
 
-## データ
+## True number of occupied sites
 
 ```{r view_site_occ_data1, echo=TRUE}
-sum(z)                        # True number of occupied sites
+sum(z)
 ```
+
+## Observed number of occupied sites
 
 ```{r view_site_occ_data2, echo=TRUE}
-sum(apply(y, 1, max))         # Observed number of occupied sites
+sum(apply(y, 1, max))
 ```
 
+## Truth and measurements for first 6
+
 ```{r view_site_occ_data3, echo=TRUE}
-head(cbind(z=z, y))           # Truth and measurements for first 6 sites
+head(cbind(z = z, y))
 ```
 
 ## unmarked
 
-```{r}
+```{r, echo=TRUE}
 umf <- unmarkedFrameOccu(y = y)
 summary(umf)
 ```
 
 ##  あてはめ
 
-```{r}
+```{r, echo=TRUE}
 fm1 <- occu(~ 1 ~ 1, data = umf)
 ```
 
 ## 結果
 
-```{r}
+```{r, echo=TRUE}
 print(fm1)
 ```
 
 ---
 
-```{r}
+```{r, echo=TRUE}
 backTransform(fm1, "state")
 ```
 
 ---
 
-```{r}
+```{r, echo=TRUE}
 backTransform(fm1, "det")
 ```
 
@@ -111,9 +109,33 @@ model {
 
 ## Fit
 
+```{r}
+set.seed(1)
+jags_data <- list(M = M, J = J, y = y)
+ini_fun <- function() {
+  list(psi = runif(1, 0, 1),
+       p = runif(1, 0, 1),
+       z = rep(1, M))
+}
+model1 <- jags.model("occ1.txt", data = jags_data,
+                     inits = ini_fun, n.chains = 3)
+update(model1, 1000)
+fit1 <- coda.samples(model1, n.iter = 1000,
+                     variable.names = c("psi", "p"))
+```
 
 
 ## Stan
+
+```{r}
+stan_data <- list(M = M, J = J, Y = y)
+model1 <- cmdstanr::cmdstan_model("occ1.stan")
+fit1 <- model1$sample(data = stan_data, seed = 1,
+                      chains = 4, parallel_chains = 4,
+                      num_samples = 1000, num_warmup = 1000)
+fit1$summary(c("psi", "p"))
+```
+
 
 
 # N-混合モデル

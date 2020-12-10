@@ -1,0 +1,11 @@
+model {
+  for (m in 1:M) {
+    z[m] ~ dbern(psi)
+    for (j in 1:J) {
+      y[m, j] ~ dbern(z[m] * p)
+    }
+  }
+  # priors
+  psi ~ dunif(0, 1)
+  p ~ dunif(0, 1)
+}
