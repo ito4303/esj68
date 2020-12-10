@@ -1,0 +1,103 @@
+---
+title: "R, BUGS, Stanによる階層モデルのあてはめ"
+author: "伊東宏樹"
+date: "12/8/2020"
+output:
+  beamer_presentation:
+    latex_engine: lualatex
+    theme: metropolis
+    keep_tex: false
+    includes:
+      in_header: header.tex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(unmarked)
+library(rjags)
+library(rstan)
+options(mc.cores = parallel::detectCores())
+library(cmdstanr)
+set_cmdstan_path("/usr/local/cmdstan")
+```
+
+
+# はじめに
+
+
+# 占有モデル
+
+## 模擬データの生成
+
+```{r gen_site_occ_data, echo=TRUE}
+lambda <- 2.5 # mean abundance
+p <- 0.4      # detection probability
+M <- 150      # Number of sites
+J <- 2        # Number of replications
+
+set.seed(123)
+N <- rpois(M, lambda) # abundance for each site
+C <- matrix(0, nrow = M, ncol = J) # count for each site
+for (j in 1:J)
+  C[, j] <-rbinom(M, N, p)
+```
+
+## データ
+
+```{r view_site_occ_data1}
+head(cbind(N, C))
+```
+
+## unmarked
+
+```{r}
+unmarked_data <- unmarkedFramePCount(y = C)
+summary(unmarked_data)
+```
+
+##  あてはめ
+
+```{r}
+fit_umk <- pcount(~1 ~1, data = unmarked_data, K = 100)
+```
+
+## 結果
+
+```{r}
+print(fit_umk)
+```
+
+---
+
+```{r}
+backTransform(fit_umk, "state")
+```
+
+---
+
+```{r}
+backTransform(fit_umk, "det")
+```
+
+## JAGS
+
+```
+model {
+  for (m in 1:M) {
+    N[m] ~ dpois(lambda)
+    for (j in 1:J) {
+      C[m, j] ~ dbinom(p, N[m])
+    }
+  }
+  # priors
+  lambda ~ dgamma(0.001, 0.001)
+  p ~ dunif(0, 1)
+}
+```
+
+## Stan
+
+
+# N-混合モデル
+
+
