@@ -79,13 +79,13 @@ fm1 <- occu(~ 1 ~ 1, data = umf)
 print(fm1)
 ```
 
----
+## 占有確率
 
 ```{r, echo=TRUE}
 backTransform(fm1, "state")
 ```
 
----
+## 検出確率
 
 ```{r, echo=TRUE}
 backTransform(fm1, "det")
@@ -109,7 +109,7 @@ model {
 
 ## Fit
 
-```{r}
+```{r, include=FALSE}
 set.seed(1)
 jags_data <- list(M = M, J = J, y = y)
 ini_fun <- function() {
@@ -117,23 +117,30 @@ ini_fun <- function() {
        p = runif(1, 0, 1),
        z = rep(1, M))
 }
-model1 <- jags.model("occ1.txt", data = jags_data,
+model1j <- jags.model("occ1.txt", data = jags_data,
                      inits = ini_fun, n.chains = 3)
-update(model1, 1000)
-fit1 <- coda.samples(model1, n.iter = 1000,
-                     variable.names = c("psi", "p"))
+update(model1j, 1000)
+fit1j <- coda.samples(model1j, n.iter = 1000,
+                      variable.names = c("psi", "p"))
+```
+
+```{r}
+summary(fit1j)
 ```
 
 
 ## Stan
 
-```{r}
+```{r, include=FALSE}
 stan_data <- list(M = M, J = J, Y = y)
-model1 <- cmdstanr::cmdstan_model("occ1.stan")
-fit1 <- model1$sample(data = stan_data, seed = 1,
-                      chains = 4, parallel_chains = 4,
-                      num_samples = 1000, num_warmup = 1000)
-fit1$summary(c("psi", "p"))
+model1s <- cmdstanr::cmdstan_model("occ1.stan")
+fit1s <- model1s$sample(data = stan_data, seed = 1,
+                        chains = 4, parallel_chains = 4,
+                        num_samples = 1000, num_warmup = 1000)
+```
+
+```{r}
+fit1s$summary(c("psi", "p"))
 ```
 
 
