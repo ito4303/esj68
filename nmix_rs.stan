@@ -4,13 +4,13 @@ functions {
    * 
    * @param count      Count
    * @param max_n      Maximum abundance
-   * @param log_lambda Mean abundance
-   * @param logit_p    Detection probability
+   * @param log_lambda Log of mean abundance
+   * @param logit_p    Logit of detection probability
    *
    * @return         Log probability
    */
-  real n_mixture_lpmf(int[] count, int max_n,
-                      real log_lambda, vector logit_p) {
+  real n_mixture_log_lpmf(int[] count, int max_n,
+                          real log_lambda, vector logit_p) {
                  
     int c_max = max(count);
     vector[max_n + 1] lp;
@@ -31,7 +31,8 @@ functions {
     real lp = 0;
 
     for (m in start:end)
-      lp = lp + n_mixture_lpmf(count[m] | max_n, log_lambda[m], logit_p[m, ]');
+      lp = lp + n_mixture_log_lpmf(count[m] |
+                                   max_n, log_lambda[m], logit_p[m, ]');
     return lp;
   }
 }
@@ -46,7 +47,7 @@ data {
 }
 
 transformed data {
-  int site[M] = rep_array(0, M); //dummy site index
+  int site[M] = rep_array(0, M); // dummy site index
 }
 
 parameters {

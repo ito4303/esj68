@@ -68,7 +68,7 @@ head(cbind(z = occ_data$z, occ_data$y))
 
 ## unmarked
 
-```{r, echo=TRUE}
+```{r occ_unmarked, echo=TRUE}
 umf <- unmarkedFrameOccu(y = occ_data$y,
                          siteCovs = data.frame(elev = occ_data$elev,
                                                forest = occ_data$forest),
@@ -78,14 +78,14 @@ summary(umf)
 
 ##  あてはめ
 
-```{r, echo=TRUE}
-fm1 <- occu(~ wind ~ elev + forest, data = umf)
+```{r occ_unmarked_fit, echo=TRUE}
+fit_occ_unmarked <- occu(~ wind ~ elev + forest, data = umf)
 ```
 
 ## 結果
 
-```{r, echo=TRUE}
-print(fm1)
+```{r occ_unmarked_results, echo=TRUE}
+print(fit_occ_unmarked)
 ```
 
 <!--
@@ -124,7 +124,7 @@ model {
 
 ## Fit
 
-```{r}
+```{r occ_jags, cache=TRUE}
 set.seed(1)
 jags_data <- list(M = occ_data$M, J = occ_data$J, y = occ_data$y,
                   elev = occ_data$elev, forest = occ_data$forest,
@@ -134,39 +134,47 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        z = rep(1, occ_data$M))
 }
-model1 <- jags.model("occ.txt", data = jags_data,
-                     inits = ini_fun, n.chains = 3)
-update(model1, 1000)
-fit1 <- coda.samples(model1, n.iter = 1000,
-                     variable.names = c("beta", "alpha"))
+mod_occ_jags <- jags.model("occ.txt", data = jags_data,
+                           inits = ini_fun, n.chains = 3)
+update(mod_occ_jags, 1000)
+fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
+                             variable.names = c("beta", "alpha"))
 ```
 
 ```{r}
-summary(fit1)
+summary(mod_occ_jags)
 ```
 
 
 
 ## Stan
 
-```{r}
+```{r occ_stan, cache=TRUE}
 stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
                   Elev = occ_data$elev, Forest = occ_data$forest,
                   Wind = occ_data$wind)
-model1 <- cmdstanr::cmdstan_model("occ.stan")
-fit1 <- model1$sample(data = stan_data, seed = 1,
-                      chains = 4, parallel_chains = 4,
-                      iter_sampling = 1000, iter_warmup = 1000)
-fit1$summary(c("beta", "alpha"))
+mod_occ_stan <- cmdstan_model("occ.stan")
+fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                    chains = 4, parallel_chains = 4,
+                                    iter_sampling = 1000,
+                                    iter_warmup = 1000,
+                                    refresh = 500)
+```
+
+
+```{r}
+fit_occ_stan$summary(c("beta", "alpha"))
 ```
 
 
 
 # N-混合モデル
 
+## データ
+
 ```{r}
 set.seed(123)
-nmix_data <- simNmix(nsites = 100,
+nmix_data <- simNmix(nsites = 120,
                      nvisits = 2,
                      mean.lam = 2,
                      mean.p = 0.6,
@@ -179,7 +187,7 @@ nmix_data <- simNmix(nsites = 100,
 
 ## unmarked
 
-```{r}
+```{r nmix_unmarked}
 umf <- unmarkedFramePCount(y = nmix_data$C,
                            siteCovs = data.frame(site_cov = nmix_data$site.cov[, 2]),
                            obsCovs = list(survey_cov = nmix_data$survey.cov))
@@ -188,7 +196,7 @@ summary(umf)
 
 ### Fit
 
-```{r}
+```{r nmix_unmarked_fit}
 fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
 print(fm2)
 ```
@@ -196,7 +204,7 @@ print(fm2)
 
 ## JAGS
 
-```{r}
+```{r nmix_jags, cache=TRUE}
 set.seed(1)
 jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   y = nmix_data$C,
@@ -207,52 +215,73 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        n = apply(nmix_data$C, 1, max))
 }
-model2 <- jags.model("nmix.txt", data = jags_data,
-                     inits = ini_fun, n.chains = 3)
-update(model2, 1000)
-fit2 <- coda.samples(model2, n.iter = 2000,
-                     variable.names = c("beta", "alpha"))
+mod_nmix_jags <- jags.model("nmix.txt", data = jags_data,
+                            inits = ini_fun, n.chains = 3)
+update(mod_nmix_jags, 1000)
+fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
+                              variable.names = c("beta", "alpha"))
 ```
 
 ```{r}
-summary(fit2)
+summary(fit_nmix_jags)
 ```
 
 
 ## Stan
 
-```{r}
+```{r nmix_stan_1, cache=TRUE}
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Y = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
-                  Max_N = 110)
-model1 <- cmdstanr::cmdstan_model("nmix.stan")
-fit1 <- model1$sample(data = stan_data, seed = 1,
-                      chains = 4, parallel_chains = 4,
-                      iter_sampling = 1000, iter_warmup = 1000,
-                      refresh = 500)
-fit1$summary(c("beta", "alpha"))
+                  Max_N = max(nmix_data$C) + 100)
+mod_nmix_stan_1 <- cmdstan_model("nmix.stan")
+fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
+                                          chains = 4, parallel_chains = 4,
+                                          iter_sampling = 1000,
+                                          iter_warmup = 1000,
+                                          refresh = 500)
+```
 
+
+
+```{r}
+fit_nmix_stan_1$summary(c("beta", "alpha"))
+
+```
+
+## Reduce Sum
+
+```{r nmix_stan_2, cache=TRUE}
+mod_nmix_stan_2 <- cmdstan_model("nmix_rs.stan",
+                                 cpp_options = list(stan_threads = TRUE))
+fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
+                                          chains = 4, parallel_chains = 4,
+                                          threads_per_chain = 3,
+                                          iter_sampling = 1000,
+                                          iter_warmup = 1000,
+                                          refresh = 500)
 ```
 
 ```{r}
-model2 <- cmdstanr::cmdstan_model("nmix_rs.stan",
-                                  cpp_options = list(stan_threads = TRUE))
-fit2 <- model2$sample(data = stan_data, seed = 1,
-                      chains = 4, parallel_chains = 4,
-                      threads_per_chain = 3,
-                      iter_sampling = 1000, iter_warmup = 1000,
-                      refresh = 500)
-fit2$summary(c("beta", "alpha"))
+fit_nmix_stan_2$summary(c("beta", "alpha"))
 ```
 
-```{r}
-model3 <- cmdstanr::cmdstan_model("nmix_bp.stan")
-fit3 <- model3$sample(data = stan_data, seed = 1,
-                      chains = 4, parallel_chains = 4,
-                      iter_sampling = 1000, iter_warmup = 1000,
-                      refresh = 500)
-fit3$summary(c("beta", "alpha"))
+## Bivariate Poisson
+
+```{r nmix_stan_3, cache=TRUE}
+mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
+fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
+                                          chains = 4, parallel_chains = 4,
+                                          iter_sampling = 1000,
+                                          iter_warmup = 1000,
+                                          refresh = 500)
 ```
+
+
+```{r}
+fit_nmix_stan_3$summary(c("beta", "alpha"))
+```
+
+
 
