@@ -384,7 +384,6 @@ fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
 
 ```{r}
 fit_nmix_stan_1$summary(c("beta", "alpha"))
-
 ```
 
 ## Reduce Sum
