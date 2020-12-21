@@ -29,57 +29,61 @@ options(mc.cores = parallel::detectCores())
 
 ## 模擬データの生成
 
-```{r gen_site_occ_data, echo=TRUE}
+```{r set_seed, include=FALSE}
 set.seed(123)
-occ_data <- simOcc(M = 300,
-                   J = 2,
-                   mean.occupancy = 0.6,
-                   beta1 = -2,
-                   beta2 = 2,
-                   beta3 = 0,
-                   mean.detection = 0.3,
-                   time.effects = c(0, 0),
-                   alpha1 = 0,
-                   alpha2 = -3,
-                   alpha3 = 0,
-                   sd.lp = 0.5,
-                   b = 0,
-                    show.plot = FALSE)
 ```
 
 
-## True number of occupied sites
+```{r gen_site_occ_data, echo=TRUE}
+occ_data <- AHMbook::simOcc(
+  M = 300, J = 2,
+  mean.occupancy = 0.6,
+  beta1 = -2, beta2 = 2, beta3 = 0,
+  mean.detection = 0.3,
+  time.effects = c(0, 0),
+  alpha1 = 0, alpha2 = -3, alpha3 = 0,
+  sd.lp = 0.5,
+  b = 0,
+  show.plot = FALSE)
+```
 
-```{r view_site_occ_data1, echo=TRUE}
+
+## データの確認
+
+```{r view_site_occ_data, echo=TRUE}
+# True number of occupied sites
 sum(occ_data$z)
-```
 
-## Observed number of occupied sites
-
-```{r view_site_occ_data2, echo=TRUE}
+# Observed number of occupied sites
 sum(apply(occ_data$y, 1, max))
 ```
 
-## Truth and measurements for first 6
+## データの確認
 
 ```{r view_site_occ_data3, echo=TRUE}
+# Truth and measurements for first 6
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
 ## unmarked
 
-```{r occ_unmarked, echo=TRUE}
-umf <- unmarkedFrameOccu(y = occ_data$y,
-                         siteCovs = data.frame(elev = occ_data$elev,
-                                               forest = occ_data$forest),
-                         obsCovs = list(wind = occ_data$wind))
+```{r occ_unmarked, echo=TRUE, message=FALSE}
+umf <- unmarkedFrameOccu(
+  y = occ_data$y,
+  siteCovs = data.frame(elev = occ_data$elev,
+                        forest = occ_data$forest),
+  obsCovs = list(wind = occ_data$wind))
+```
+
+```{r}
 summary(umf)
 ```
 
 ##  あてはめ
 
 ```{r occ_unmarked_fit, echo=TRUE}
-fit_occ_unmarked <- occu(~ wind ~ elev + forest, data = umf)
+fit_occ_unmarked <- occu(~ wind ~ elev + forest,
+                         data = umf)
 ```
 
 ## 結果
@@ -89,20 +93,14 @@ print(fit_occ_unmarked)
 ```
 
 <!--
-
-
-
-
----
-
 ```{r, echo=TRUE}
-backTransform(fm1, "state")
+#backTransform(fm1, "state")
 ```
+-->
 
----
-
+<!--
 ```{r, echo=TRUE}
-backTransform(fm1, "det")
+#backTransform(fm1, "det")
 ```
 -->
 
@@ -111,20 +109,26 @@ backTransform(fm1, "det")
 ```
 model {
   for (m in 1:M) {
-    z[m] ~ dbern(psi)
+    logit(psi[m]) <- beta[1] + beta[2] * elev[m] + 
+                     beta[3] * forest[m]
+    z[m] ~ dbern(psi[m])
     for (j in 1:J) {
-      y[m, j] ~ dbern(z[m] * p)
+      logit(p[m, j]) <- alpha[1] + alpha[2] * wind[m, j]
+      y[m, j] ~ dbern(z[m] * p[m, j])
     }
   }
-  # priors
-  psi ~ dunif(0, 1)
-  p ~ dunif(0, 1)
+  for (i in 1:3) {
+    beta[i] ~ dnorm(0, 1.0e-2)
+  }
+  for (i in 1:2) {
+    alpha[i] ~ dnorm(0, 1.0e-2)
+  }
 }
 ```
 
 ## Fit
 
-```{r occ_jags, cache=TRUE}
+```{r occ_jags, cache=TRUE, include=FALSE}
 set.seed(1)
 jags_data <- list(M = occ_data$M, J = occ_data$J, y = occ_data$y,
                   elev = occ_data$elev, forest = occ_data$forest,
@@ -142,14 +146,69 @@ fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
 ```
 
 ```{r}
-summary(mod_occ_jags)
+summary(fit_occ_jags)
 ```
 
 
 
 ## Stan
 
-```{r occ_stan, cache=TRUE}
+```
+data {
+  int<lower = 0> M;
+  int<lower = 0> J;
+  int<lower = 0, upper = 1> Y[M, J];
+  vector[M] Elev;
+  vector[M] Forest;
+  matrix[M, J] Wind;
+}
+transformed data {
+  int<lower = 0> Ysum[M];
+
+  for (m in 1:M)
+    Ysum[m] = sum(Y[m, ]);
+}
+```
+
+---
+
+```
+parameters {
+  vector[3] beta;
+  vector[2] alpha;
+}
+transformed parameters {
+  vector[M] logit_psi = beta[1]
+                        + beta[2] * Elev
+                        + beta[3] * Forest;
+  matrix[M, J] logit_p = alpha[1]
+                         + alpha[2] * Wind;
+}
+```
+
+---
+
+```
+model {
+  for (m in 1:M) {
+    if (Ysum[m] > 0) { // detected
+      target += bernoulli_logit_lpmf(1 | logit_psi[m])
+              + bernoulli_logit_lpmf(Y[m, ] | logit_p[m, ]);
+    } else {          // not detected
+      real lp[2];
+
+      lp[1] = bernoulli_logit_lpmf(0 | logit_psi[m]);
+      lp[2] = bernoulli_logit_lpmf(1 | logit_psi[m])
+            + bernoulli_logit_lpmf(Y[m, ] | logit_p[m, ]);
+      target += log_sum_exp(lp);
+    }
+  }
+  beta ~ normal(0, 10);
+  alpha ~ normal(0, 10);
+}
+```
+
+```{r occ_stan, cache=TRUE, include=FALSE}
 stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
                   Elev = occ_data$elev, Forest = occ_data$forest,
                   Wind = occ_data$wind)
@@ -161,6 +220,7 @@ fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
                                     refresh = 500)
 ```
 
+---
 
 ```{r}
 fit_occ_stan$summary(c("beta", "alpha"))
@@ -172,25 +232,33 @@ fit_occ_stan$summary(c("beta", "alpha"))
 
 ## データ
 
-```{r}
+```{r nmix_data, echo=TRUE, message=FALSE}
 set.seed(123)
-nmix_data <- simNmix(nsites = 120,
-                     nvisits = 2,
-                     mean.lam = 2,
-                     mean.p = 0.6,
-                     beta2.lam = 0.5,
-                     beta.p.survey = 0.8,
-                     show.plots = FALSE)
+nmix_data <- AHMbook::simNmix(
+  nsites = 120,
+  nvisits = 2,
+  mean.lam = 2,
+  mean.p = 0.6,
+  beta2.lam = 0.5,
+  beta.p.survey = 0.8,
+  show.plots = FALSE)
 ```
 
 
 
 ## unmarked
 
-```{r nmix_unmarked}
-umf <- unmarkedFramePCount(y = nmix_data$C,
-                           siteCovs = data.frame(site_cov = nmix_data$site.cov[, 2]),
-                           obsCovs = list(survey_cov = nmix_data$survey.cov))
+```{r nmix_unmarked, echo=TRUE}
+umf <- unmarkedFramePCount(
+  y = nmix_data$C,
+  siteCovs = data.frame(site_cov =
+                          nmix_data$site.cov[, 2]),
+  obsCovs = list(survey_cov = nmix_data$survey.cov))
+```
+
+---
+
+```{r, echo=TRUE}
 summary(umf)
 ```
 
@@ -204,7 +272,29 @@ print(fm2)
 
 ## JAGS
 
-```{r nmix_jags, cache=TRUE}
+```
+model {
+  for (m in 1:M) {
+    log(lambda[m]) <- beta[1] + beta[2] * cov.abn[m]
+    n[m] ~ dpois(lambda[m])
+    for (j in 1:J) {
+      logit(p[m, j]) <- alpha[1] +
+                        alpha[2] * cov.det[m, j]
+      y[m, j] ~ dbin(p[m, j], n[m])
+    }
+  }
+  for (i in 1:2) {
+    beta[i] ~ dnorm(0, 1.0e-2)
+  }
+  for (i in 1:2) {
+    alpha[i] ~ dnorm(0, 1.0e-2)
+  }
+}
+```
+
+---
+
+```{r nmix_jags, cache=TRUE, include=FALSE}
 set.seed(1)
 jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   y = nmix_data$C,
@@ -222,14 +312,61 @@ fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
                               variable.names = c("beta", "alpha"))
 ```
 
-```{r}
+```{r, echo=TRUE}
 summary(fit_nmix_jags)
 ```
 
 
 ## Stan
 
-```{r nmix_stan_1, cache=TRUE}
+```
+data {
+  int<lower = 0> M;
+  int<lower = 0> J;
+  int<lower = 0> Y[M, J];
+  vector[M] Cov_abn;
+  matrix[M, J] Cov_det;
+  int<lower = 0> Max_N;
+}
+```
+
+---
+
+```
+parameters {
+  vector[2] beta;
+  vector[2] alpha;
+}
+
+transformed parameters {
+  vector[M] log_lambda = beta[1]
+                         + beta[2] * Cov_abn;
+  matrix[M, J] logit_p = alpha[1]
+                         + alpha[2] * Cov_det;
+}
+```
+
+---
+
+```
+model {
+  for (m in 1:M) {
+    int y_max = max(Y[m]);
+    vector[Max_N + 1] lp;
+
+    for (n in 0:(y_max - 1))
+      lp[n + 1] = negative_infinity();
+    for (n in y_max:Max_N)
+      lp[n + 1] = poisson_log_lpmf(n | log_lambda[m])
+                  + binomial_logit_lpmf(Y[m, ] | n, logit_p[m, ]);
+    target += log_sum_exp(lp);
+  }
+  beta ~ normal(0, 10);
+  alpha ~ normal(0, 10);
+}
+```
+
+```{r nmix_stan_1, cache=TRUE, include=FALSE}
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Y = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
@@ -243,7 +380,7 @@ fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
                                           refresh = 500)
 ```
 
-
+---
 
 ```{r}
 fit_nmix_stan_1$summary(c("beta", "alpha"))
@@ -252,7 +389,56 @@ fit_nmix_stan_1$summary(c("beta", "alpha"))
 
 ## Reduce Sum
 
-```{r nmix_stan_2, cache=TRUE}
+```
+functions {
+  real n_mixture_log_lpmf(int[] count, int max_n,
+                          real log_lambda, vector logit_p) {
+                 
+    int c_max = max(count);
+    vector[max_n + 1] lp;
+
+    for (k in 0:(c_max - 1))
+      lp[k + 1] = negative_infinity();
+    for (k in c_max:max_n) 
+      lp[k + 1] = poisson_log_lpmf(k | log_lambda)
+                  + binomial_logit_lpmf(count | k, logit_p);
+    return log_sum_exp(lp);
+  }
+```
+
+---
+
+```
+  real partial_sum(int[] site,
+                   int start, int end,
+                   int[, ] count,
+                   int max_n,
+                   vector log_lambda, matrix logit_p) {
+    real lp = 0;
+
+    for (m in start:end)
+      lp = lp + n_mixture_log_lpmf(count[m] |
+                                   max_n, log_lambda[m], logit_p[m, ]');
+    return lp;
+  }
+}
+```
+
+---
+
+```
+model {
+  int grainsize = 1;
+
+  target += reduce_sum(partial_sum, site, grainsize, Y, Max_N,
+                       log_lambda, logit_p);
+  beta ~ normal(0, 10);
+  alpha ~ normal(0, 10);
+}
+```
+
+
+```{r nmix_stan_2, cache=TRUE, include=FALSE}
 mod_nmix_stan_2 <- cmdstan_model("nmix_rs.stan",
                                  cpp_options = list(stan_threads = TRUE))
 fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
@@ -269,7 +455,39 @@ fit_nmix_stan_2$summary(c("beta", "alpha"))
 
 ## Bivariate Poisson
 
-```{r nmix_stan_3, cache=TRUE}
+```
+functions {
+  real bivariate_poisson_log_lpmf(int[] n, real log_lambda, vector p) {
+    real s[min(n) + 1];
+    real log_theta_2 = log_lambda + log(p[1]) + log1m(p[2]);
+    real log_theta_1 = log_lambda + log1m(p[1]) + log(p[2]);
+    real log_theta_0 = log_lambda + log(p[1]) + log(p[2]);
+
+    if (size(n) != 2 || num_elements(p) != 2)
+      reject("Size of n and p must be 2.");
+    if (p[1] < 0 || p[1] > 1 || p[2] < 0 || p[2] > 1)
+      reject("p must be in [0,1].");
+    for (u in 0:min(n))
+      s[u + 1] = poisson_log_lpmf(n[1] - u | log_theta_2)
+               + poisson_log_lpmf(n[2] - u | log_theta_1)
+               + poisson_log_lpmf(u | log_theta_0);
+    return log_sum_exp(s);
+  }
+}
+```
+
+---
+
+```
+model {
+  for (m in 1:M)
+    Y[m, ] ~ bivariate_poisson_log(log_lambda[m], p[m, ]');
+  beta ~ normal(0, 10);
+  alpha ~ normal(0, 10);
+}
+```
+
+```{r nmix_stan_3, cache=TRUE, include=FALSE}
 mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
 fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
                                           chains = 4, parallel_chains = 4,

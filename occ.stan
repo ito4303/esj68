@@ -41,4 +41,6 @@ model {
       target += log_sum_exp(lp);
     }
   }
+  beta ~ normal(0, 10);
+  alpha ~ normal(0, 10);
 }
