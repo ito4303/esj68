@@ -13,6 +13,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+library(AHMbook)
 library(unmarked)
 library(rjags)
 library(cmdstanr)
@@ -30,47 +31,55 @@ options(mc.cores = parallel::detectCores())
 
 ```{r gen_site_occ_data, echo=TRUE}
 set.seed(123)
-M <- 100      # Number of sites
-J <- 2        # Number of presence/absence meas.
-y <- matrix(NA, nrow = M, ncol = J)
-psi <- 0.8    # Prob. occupancy or presence
-p <- 0.5      # Prob. detection
-z <- rbinom(n = M, size = 1, prob = psi)
-for(j in 1:J) {
-   y[, j] <- rbinom(n = M, size = 1, prob = z * p)
-}
+occ_data <- simOcc(M = 300,
+                   J = 2,
+                   mean.occupancy = 0.6,
+                   beta1 = -2,
+                   beta2 = 2,
+                   beta3 = 0,
+                   mean.detection = 0.3,
+                   time.effects = c(0, 0),
+                   alpha1 = 0,
+                   alpha2 = -3,
+                   alpha3 = 0,
+                   sd.lp = 0.5,
+                   b = 0,
+                    show.plot = FALSE)
 ```
 
 
 ## True number of occupied sites
 
 ```{r view_site_occ_data1, echo=TRUE}
-sum(z)
+sum(occ_data$z)
 ```
 
 ## Observed number of occupied sites
 
 ```{r view_site_occ_data2, echo=TRUE}
-sum(apply(y, 1, max))
+sum(apply(occ_data$y, 1, max))
 ```
 
 ## Truth and measurements for first 6
 
 ```{r view_site_occ_data3, echo=TRUE}
-head(cbind(z = z, y))
+head(cbind(z = occ_data$z, occ_data$y))
 ```
 
 ## unmarked
 
 ```{r, echo=TRUE}
-umf <- unmarkedFrameOccu(y = y)
+umf <- unmarkedFrameOccu(y = occ_data$y,
+                         siteCovs = data.frame(elev = occ_data$elev,
+                                               forest = occ_data$forest),
+                         obsCovs = list(wind = occ_data$wind))
 summary(umf)
 ```
 
 ##  あてはめ
 
 ```{r, echo=TRUE}
-fm1 <- occu(~ 1 ~ 1, data = umf)
+fm1 <- occu(~ wind ~ elev + forest, data = umf)
 ```
 
 ## 結果
@@ -78,6 +87,11 @@ fm1 <- occu(~ 1 ~ 1, data = umf)
 ```{r, echo=TRUE}
 print(fm1)
 ```
+
+<!--
+
+
+
 
 ---
 
@@ -90,6 +104,7 @@ backTransform(fm1, "state")
 ```{r, echo=TRUE}
 backTransform(fm1, "det")
 ```
+-->
 
 ## JAGS
 
@@ -111,33 +126,133 @@ model {
 
 ```{r}
 set.seed(1)
-jags_data <- list(M = M, J = J, y = y)
+jags_data <- list(M = occ_data$M, J = occ_data$J, y = occ_data$y,
+                  elev = occ_data$elev, forest = occ_data$forest,
+                  wind = occ_data$wind)
 ini_fun <- function() {
-  list(psi = runif(1, 0, 1),
-       p = runif(1, 0, 1),
-       z = rep(1, M))
+  list(beta = rnorm(3, 0, 2),
+       alpha = rnorm(2, 0, 2),
+       z = rep(1, occ_data$M))
 }
-model1 <- jags.model("occ1.txt", data = jags_data,
+model1 <- jags.model("occ.txt", data = jags_data,
                      inits = ini_fun, n.chains = 3)
 update(model1, 1000)
 fit1 <- coda.samples(model1, n.iter = 1000,
-                     variable.names = c("psi", "p"))
+                     variable.names = c("beta", "alpha"))
 ```
+
+```{r}
+summary(fit1)
+```
+
 
 
 ## Stan
 
 ```{r}
-stan_data <- list(M = M, J = J, Y = y)
-model1 <- cmdstanr::cmdstan_model("occ1.stan")
+stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
+                  Elev = occ_data$elev, Forest = occ_data$forest,
+                  Wind = occ_data$wind)
+model1 <- cmdstanr::cmdstan_model("occ.stan")
 fit1 <- model1$sample(data = stan_data, seed = 1,
                       chains = 4, parallel_chains = 4,
-                      num_samples = 1000, num_warmup = 1000)
-fit1$summary(c("psi", "p"))
+                      iter_sampling = 1000, iter_warmup = 1000)
+fit1$summary(c("beta", "alpha"))
 ```
 
 
 
 # N-混合モデル
 
+```{r}
+set.seed(123)
+nmix_data <- simNmix(nsites = 100,
+                     nvisits = 2,
+                     mean.lam = 2,
+                     mean.p = 0.6,
+                     beta2.lam = 0.5,
+                     beta.p.survey = 0.8,
+                     show.plots = FALSE)
+```
+
+
+
+## unmarked
+
+```{r}
+umf <- unmarkedFramePCount(y = nmix_data$C,
+                           siteCovs = data.frame(site_cov = nmix_data$site.cov[, 2]),
+                           obsCovs = list(survey_cov = nmix_data$survey.cov))
+summary(umf)
+```
+
+### Fit
+
+```{r}
+fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
+print(fm2)
+```
+
+
+## JAGS
+
+```{r}
+set.seed(1)
+jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
+                  y = nmix_data$C,
+                  cov.abn = nmix_data$site.cov[, 2],
+                  cov.det = nmix_data$survey.cov)
+ini_fun <- function() {
+  list(beta = rnorm(2, 0, 2),
+       alpha = rnorm(2, 0, 2),
+       n = apply(nmix_data$C, 1, max))
+}
+model2 <- jags.model("nmix.txt", data = jags_data,
+                     inits = ini_fun, n.chains = 3)
+update(model2, 1000)
+fit2 <- coda.samples(model2, n.iter = 2000,
+                     variable.names = c("beta", "alpha"))
+```
+
+```{r}
+summary(fit2)
+```
+
+
+## Stan
+
+```{r}
+stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
+                  Y = nmix_data$C,
+                  Cov_abn = nmix_data$site.cov[, 2],
+                  Cov_det = nmix_data$survey.cov,
+                  Max_N = 110)
+model1 <- cmdstanr::cmdstan_model("nmix.stan")
+fit1 <- model1$sample(data = stan_data, seed = 1,
+                      chains = 4, parallel_chains = 4,
+                      iter_sampling = 1000, iter_warmup = 1000,
+                      refresh = 500)
+fit1$summary(c("beta", "alpha"))
+
+```
+
+```{r}
+model2 <- cmdstanr::cmdstan_model("nmix_rs.stan",
+                                  cpp_options = list(stan_threads = TRUE))
+fit2 <- model2$sample(data = stan_data, seed = 1,
+                      chains = 4, parallel_chains = 4,
+                      threads_per_chain = 3,
+                      iter_sampling = 1000, iter_warmup = 1000,
+                      refresh = 500)
+fit2$summary(c("beta", "alpha"))
+```
+
+```{r}
+model3 <- cmdstanr::cmdstan_model("nmix_bp.stan")
+fit3 <- model3$sample(data = stan_data, seed = 1,
+                      chains = 4, parallel_chains = 4,
+                      iter_sampling = 1000, iter_warmup = 1000,
+                      refresh = 500)
+fit3$summary(c("beta", "alpha"))
+```
 
