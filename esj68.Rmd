@@ -1,12 +1,14 @@
 ---
-title: "R, BUGS, Stanによる階層モデルのあてはめ"
+title: |
+       | R, BUGS, Stanによる
+       | 階層モデルのあてはめ
 author: "伊東宏樹"
 date: "12/8/2020"
 output:
   beamer_presentation:
     latex_engine: lualatex
     theme: metropolis
-    keep_tex: false
+    keep_tex: true
     includes:
       in_header: header.tex
 ---
@@ -25,7 +27,7 @@ options(mc.cores = parallel::detectCores())
 
 \tableofcontents[hideallsubsections]
 
-# 占有モデル
+# サイト占有モデル
 
 ## 模擬データの生成
 
@@ -36,14 +38,17 @@ set.seed(123)
 
 ```{r gen_site_occ_data, echo=TRUE}
 occ_data <- AHMbook::simOcc(
-  M = 300, J = 2,
-  mean.occupancy = 0.6,
-  beta1 = -2, beta2 = 2, beta3 = 0,
-  mean.detection = 0.3,
-  time.effects = c(0, 0),
-  alpha1 = 0, alpha2 = -3, alpha3 = 0,
-  sd.lp = 0.5,
-  b = 0,
+  M = 300,                # 300サイト
+  J = 2,                  # 2回繰り返し測定
+  mean.occupancy = 0.6,   # 平均占有確率
+  beta1 = -2,             # 占有に対する標高の効果
+  beta2 = 2,              # 占有に対する森林の効果
+  beta3 = 0,              # 占有に対する標高×森林の交互作用
+  mean.detection = 0.3,   # 平均検出確率
+  time.effects = c(0, 0), # 時間効果なし
+  alpha1 = 0,             # 検出に対する標高の効果
+  alpha2 = -3,            # 検出に対する風の効果
+  alpha3 = 0,             # 検出に対する標高×風の効果
   show.plot = FALSE)
 ```
 
@@ -51,17 +56,17 @@ occ_data <- AHMbook::simOcc(
 ## データの確認
 
 ```{r view_site_occ_data, echo=TRUE}
-# True number of occupied sites
+# 真の占有サイト数
 sum(occ_data$z)
 
-# Observed number of occupied sites
+# 観測された占有サイト数
 sum(apply(occ_data$y, 1, max))
 ```
 
 ## データの確認
 
 ```{r view_site_occ_data3, echo=TRUE}
-# Truth and measurements for first 6
+# 最初の6サイトのデータ (zが真の占有状態)
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
@@ -75,7 +80,9 @@ umf <- unmarkedFrameOccu(
   obsCovs = list(wind = occ_data$wind))
 ```
 
-```{r}
+## unmarkedオブジェクト
+
+```{r, echo=TRUE}
 summary(umf)
 ```
 
@@ -128,7 +135,7 @@ model {
 
 ## Fit
 
-```{r occ_jags, cache=TRUE, include=FALSE}
+```{r occ_jags, include=FALSE}
 set.seed(1)
 jags_data <- list(M = occ_data$M, J = occ_data$J, y = occ_data$y,
                   elev = occ_data$elev, forest = occ_data$forest,
@@ -138,11 +145,19 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        z = rep(1, occ_data$M))
 }
-mod_occ_jags <- jags.model("occ.txt", data = jags_data,
-                           inits = ini_fun, n.chains = 3)
-update(mod_occ_jags, 1000)
-fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
-                             variable.names = c("beta", "alpha"))
+model_file <- "occ.txt"
+rdata_file <- "occ_jags.RData"
+if (file.exists(rdata_file) &
+    (file.mtime(rdata_file) > file.mtime(model_file))) {
+  load(rdata_file)
+} else {
+  mod_occ_jags <- jags.model(model_file, data = jags_data,
+                             inits = ini_fun, n.chains = 3)
+  update(mod_occ_jags, 1000)
+  fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
+                               variable.names = c("beta", "alpha"))
+  save(fit_occ_jags, file = rdata_file)
+}
 ```
 
 ```{r}
@@ -208,16 +223,24 @@ model {
 }
 ```
 
-```{r occ_stan, cache=TRUE, include=FALSE}
+```{r occ_stan, include=FALSE}
 stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
                   Elev = occ_data$elev, Forest = occ_data$forest,
                   Wind = occ_data$wind)
-mod_occ_stan <- cmdstan_model("occ.stan")
-fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
-                                    chains = 4, parallel_chains = 4,
-                                    iter_sampling = 1000,
-                                    iter_warmup = 1000,
-                                    refresh = 500)
+model_file <- "occ.stan"
+rds_file <- "occ_stan.RDS"
+if (file.exists(rds_file) &
+    (file.mtime(rds_file) > file.mtime(model_file))) {
+  fit_occ_stan <- readRDS(rds_file)
+} else {
+  mod_occ_stan <- cmdstan_model(model_file)
+  fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                      chains = 4, parallel_chains = 4,
+                                      iter_sampling = 1000,
+                                      iter_warmup = 1000,
+                                      refresh = 500)
+  fit_occ_stan$save_object(rds_file)
+}
 ```
 
 ---
@@ -230,7 +253,7 @@ fit_occ_stan$summary(c("beta", "alpha"))
 
 # N-混合モデル
 
-## データ
+## 模擬データ
 
 ```{r nmix_data, echo=TRUE, message=FALSE}
 set.seed(123)
@@ -256,16 +279,21 @@ umf <- unmarkedFramePCount(
   obsCovs = list(survey_cov = nmix_data$survey.cov))
 ```
 
----
+## unmarkedオブジェクト
 
 ```{r, echo=TRUE}
 summary(umf)
 ```
 
-### Fit
+## あてはめ
 
-```{r nmix_unmarked_fit}
+```{r nmix_unmarked_fit, echo=TRUE}
 fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
+```
+
+## 結果
+
+```{r nmix_unmarked_result, echo=TRUE}
 print(fm2)
 ```
 
@@ -294,7 +322,7 @@ model {
 
 ---
 
-```{r nmix_jags, cache=TRUE, include=FALSE}
+```{r nmix_jags, include=FALSE}
 set.seed(1)
 jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   y = nmix_data$C,
@@ -305,11 +333,19 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        n = apply(nmix_data$C, 1, max))
 }
-mod_nmix_jags <- jags.model("nmix.txt", data = jags_data,
-                            inits = ini_fun, n.chains = 3)
-update(mod_nmix_jags, 1000)
-fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
-                              variable.names = c("beta", "alpha"))
+model_file <- "nmix.txt"
+rdata_file <- "nmix_jags.RData"
+if (file.exists(rdata_file) &
+    (file.mtime(rdata_file) > file.mtime(model_file))) {
+  load(rdata_file)
+} else {
+  mod_nmix_jags <- jags.model(model_file, data = jags_data,
+                              inits = ini_fun, n.chains = 3)
+  update(mod_nmix_jags, 1000)
+  fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
+                                variable.names = c("beta", "alpha"))
+  save(fit_nmix_jags, file = rdata_file)
+}
 ```
 
 ```{r, echo=TRUE}
@@ -358,7 +394,7 @@ model {
       lp[n + 1] = negative_infinity();
     for (n in y_max:Max_N)
       lp[n + 1] = poisson_log_lpmf(n | log_lambda[m])
-                  + binomial_logit_lpmf(Y[m, ] | n, logit_p[m, ]);
+                + binomial_logit_lpmf(Y[m, ] | n, logit_p[m, ]);
     target += log_sum_exp(lp);
   }
   beta ~ normal(0, 10);
@@ -366,18 +402,26 @@ model {
 }
 ```
 
-```{r nmix_stan_1, cache=TRUE, include=FALSE}
+```{r nmix_stan_1, include=FALSE}
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Y = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
                   Max_N = max(nmix_data$C) + 100)
-mod_nmix_stan_1 <- cmdstan_model("nmix.stan")
-fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
+model_file <- "nmix.stan"
+rds_file <- "nmix_stan_1.RDS"
+if (file.exists(rds_file) &
+    (file.mtime(rds_file) > file.mtime(model_file))) {
+  fit_nmix_stan_1 <- readRDS(rds_file)
+} else {
+  mod_nmix_stan_1 <- cmdstan_model(model_file)
+  fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
+                                            chains = 4, parallel_chains = 4,
+                                            iter_sampling = 1000,
+                                            iter_warmup = 1000,
                                           refresh = 500)
+  fit_nmix_stan_1$save_object(rds_file)
+}
 ```
 
 ---
@@ -416,8 +460,9 @@ functions {
     real lp = 0;
 
     for (m in start:end)
-      lp = lp + n_mixture_log_lpmf(count[m] |
-                                   max_n, log_lambda[m], logit_p[m, ]');
+      lp = lp
+         + n_mixture_log_lpmf(count[m] |
+                           max_n, log_lambda[m], logit_p[m, ]');
     return lp;
   }
 }
@@ -437,15 +482,23 @@ model {
 ```
 
 
-```{r nmix_stan_2, cache=TRUE, include=FALSE}
-mod_nmix_stan_2 <- cmdstan_model("nmix_rs.stan",
-                                 cpp_options = list(stan_threads = TRUE))
-fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          threads_per_chain = 3,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
-                                          refresh = 500)
+```{r nmix_stan_2, include=FALSE}
+model_file <- "nmix_rs.stan"
+rds_file <- "nmix_stan_2.RDS"
+if (file.exists(rds_file) &
+    (file.mtime(rds_file) > file.mtime(model_file))) {
+  fit_nmix_stan_2 <- readRDS(rds_file)
+} else {
+  mod_nmix_stan_2 <- cmdstan_model(model_file,
+                                   cpp_options = list(stan_threads = TRUE))
+  fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
+                                            chains = 4, parallel_chains = 4,
+                                            threads_per_chain = 3,
+                                            iter_sampling = 1000,
+                                            iter_warmup = 1000,
+                                            refresh = 500)
+  fit_nmix_stan_2$save_object(rds_file)
+}
 ```
 
 ```{r}
@@ -456,7 +509,8 @@ fit_nmix_stan_2$summary(c("beta", "alpha"))
 
 ```
 functions {
-  real bivariate_poisson_log_lpmf(int[] n, real log_lambda, vector p) {
+  real bivariate_poisson_log_lpmf(int[] n, real log_lambda,
+                                  vector p) {
     real s[min(n) + 1];
     real log_theta_2 = log_lambda + log(p[1]) + log1m(p[2]);
     real log_theta_1 = log_lambda + log1m(p[1]) + log(p[2]);
@@ -486,13 +540,21 @@ model {
 }
 ```
 
-```{r nmix_stan_3, cache=TRUE, include=FALSE}
-mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
-fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
-                                          refresh = 500)
+```{r nmix_stan_3, include=FALSE}
+model_file <- "nmix_bp.stan"
+rds_file <- "nmix_stan_3.RDS"
+if (file.exists(rds_file) &
+    (file.mtime(rds_file) > file.mtime(model_file))) {
+  fit_nmix_stan_3 <- readRDS(rds_file)
+} else {
+  mod_nmix_stan_3 <- cmdstan_model(model_file)
+  fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
+                                            chains = 4, parallel_chains = 4,
+                                            iter_sampling = 1000,
+                                            iter_warmup = 1000,
+                                            refresh = 500)
+  fit_nmix_stan_3$save_object(rds_file)
+}
 ```
 
 

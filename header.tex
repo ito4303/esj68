@@ -8,7 +8,8 @@
 %% フォントの設定
 \setsansfont[Scale=1.0]{TeX Gyre Heros}
 %% http://mathematicalcoffee.blogspot.com/2012/03/getting-straight-single-quotes-for.html
-\setmonofont[Scale=MatchLowercase,Ligatures=Common]{Latin Modern Mono}
+%\setmonofont[Scale=MatchLowercase,Ligatures=Common]{Latin Modern Mono}
+\setmonofont[Scale=MatchLowercase,Ligatures=Common]{Noto Sans Mono}
 
 %% 日本語フォントの設定
 \usepackage[deluxe,noto-otf]{luatexja-preset}
@@ -23,7 +24,7 @@
 %% change fontsize of output
 \let\oldverbatim\verbatim
 \let\endoldverbatim\endverbatim
-\renewenvironment{verbatim}{\footnotesize\oldverbatim}{\endoldverbatim}
+\renewenvironment{verbatim}{\scriptsize\oldverbatim}{\endoldverbatim}
 
 %% Title font size
 \setbeamerfont{title}{size=\Huge, series=\bfseries}
