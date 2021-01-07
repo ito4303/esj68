@@ -1,7 +1,7 @@
 ---
 title: "R, BUGS, Stanによる階層モデルのあてはめ"
 author: "伊東宏樹"
-date: "12/8/2020"
+date: "2021-03-21"
 output:
   beamer_presentation:
     latex_engine: lualatex
@@ -26,7 +26,7 @@ options(mc.cores = parallel::detectCores())
 - 占有モデル
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
-- $N$混合モデル
+- N混合モデル
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
 
@@ -283,22 +283,25 @@ fit_occ_stan$summary(c("beta", "alpha"))
 
 ## データ
 
-```{r nmix_data, echo=TRUE, message=FALSE}
+```{r, include=FALSE}
 set.seed(123)
+```
+
+```{r nmix_data, echo=TRUE, message=FALSE}
 nmix_data <- AHMbook::simNmix(
-  nsites = 120,
-  nvisits = 2,
-  mean.lam = 2,
-  mean.p = 0.6,
-  beta2.lam = 0.5,
-  beta.p.survey = 0.8,
+  nsites = 120,         # Number of sites
+  nvisits = 2,          # Number of visits pre site
+  mean.lam = 2,         # Expected abundance
+  mean.p = 0.6,         # Expected detection
+  beta2.lam = 0.5,      # Coef. of site covariate 2 in abundance model
+  beta.p.survey = 0.8,  # Coef. of survey covariate on p
   show.plots = FALSE)
 ```
 
 
 # unmarkedによるN混合モデルの当てはめ
 
-## unmarked
+## unmarkedオブジェクトの作成
 
 ```{r nmix_unmarked, echo=TRUE}
 umf <- unmarkedFramePCount(
@@ -308,16 +311,47 @@ umf <- unmarkedFramePCount(
   obsCovs = list(survey_cov = nmix_data$survey.cov))
 ```
 
----
+## summary(umf)
 
-```{r, echo=TRUE}
-summary(umf)
+```
+unmarkedFrame Object
+
+120 sites
+Maximum number of observations per site: 2 
+Mean number of observations per site: 2 
+Sites with at least one detection: 100 
+
+Tabulation of y observations:
+ 0  1  2  3  4  5  6 
+69 86 44 26  9  4  2 
 ```
 
-### Fit
+---
 
-```{r nmix_unmarked_fit}
-fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
+```
+Site-level covariates:
+    site_cov       
+ Min.   :-1.95813  
+ 1st Qu.:-0.93791  
+ Median :-0.08173  
+ Mean   :-0.01629  
+ 3rd Qu.: 0.76828  
+ Max.   : 1.94256  
+
+Observation-level covariates:
+   survey_cov      
+ Min.   :-1.99523  
+ 1st Qu.:-0.97282  
+ Median : 0.05019  
+ Mean   :-0.01689  
+ 3rd Qu.: 0.97496  
+ Max.   : 1.96868  
+```
+
+## Fit
+
+```{r nmix_unmarked_fit, echo=TRUE}
+fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf, K = 110)
 print(fm2)
 ```
 
