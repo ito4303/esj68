@@ -6,7 +6,7 @@ output:
   beamer_presentation:
     latex_engine: lualatex
     theme: metropolis
-    keep_tex: false
+    keep_tex: true
     includes:
       in_header: header.tex
 ---
@@ -21,9 +21,14 @@ options(mc.cores = parallel::detectCores())
 ```
 
 
-## 目次
+## 今日の内容
 
-\tableofcontents[hideallsubsections]
+- 占有モデル
+    - 模擬データの作成
+    - unmarked, JAGS, Stanによる当てはめ
+- $N$混合モデル
+    - 模擬データの作成
+    - unmarked, JAGS, Stanによる当てはめ
 
 # 占有モデル
 
@@ -36,14 +41,19 @@ set.seed(123)
 
 ```{r gen_site_occ_data, echo=TRUE}
 occ_data <- AHMbook::simOcc(
-  M = 300, J = 2,
-  mean.occupancy = 0.6,
-  beta1 = -2, beta2 = 2, beta3 = 0,
-  mean.detection = 0.3,
-  time.effects = c(0, 0),
-  alpha1 = 0, alpha2 = -3, alpha3 = 0,
-  sd.lp = 0.5,
-  b = 0,
+  M = 300,                # Number of sites
+  J = 2,                  # Number of temporal replicates
+  mean.occupancy = 0.6,   # Mean occurrence
+  beta1 = -2,             # Main effect of elev. on occ.
+  beta2 = 2,              # Main effect of forest on occ.
+  beta3 = 0,              # Interaction on occ. of elev. and forest
+  mean.detection = 0.3,   # Mean detection prob.
+  time.effects = c(0, 0), # Time effect
+  alpha1 = 0,             # Main effect of elev. on det.
+  alpha2 = -3,            # Main effect of wind speed on det.
+  alpha3 = 0,             # Interaction on det. of elev and wind
+  sd.lp = 0.5,            # S.D. of random site effects
+  b = 0,                  # Behavioral response
   show.plot = FALSE)
 ```
 
@@ -61,11 +71,13 @@ sum(apply(occ_data$y, 1, max))
 ## データの確認
 
 ```{r view_site_occ_data3, echo=TRUE}
-# Truth and measurements for first 6
+# Truth and observation of the first six sites
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
-## unmarked
+# unmarkedによる占有モデルの当てはめ
+
+## unmarkedオブジェクトの作成
 
 ```{r occ_unmarked, echo=TRUE, message=FALSE}
 umf <- unmarkedFrameOccu(
@@ -75,11 +87,45 @@ umf <- unmarkedFrameOccu(
   obsCovs = list(wind = occ_data$wind))
 ```
 
-```{r}
-summary(umf)
+
+## summary(umf)
+
+```
+unmarkedFrame Object
+
+300 sites
+Maximum number of observations per site: 2 
+Mean number of observations per site: 2 
+Sites with at least one detection: 93 
+
+Tabulation of y observations:
+  0   1 
+493 107 
 ```
 
-##  あてはめ
+---
+
+```
+Site-level covariates:
+      elev                forest         
+ Min.   :-0.9987505   Min.   :-0.999069  
+ 1st Qu.:-0.4801063   1st Qu.:-0.467633  
+ Median :-0.0408648   Median :-0.026556  
+ Mean   :-0.0007763   Mean   :-0.002243  
+ 3rd Qu.: 0.4657950   3rd Qu.: 0.521011  
+ Max.   : 0.9885396   Max.   : 0.998809  
+
+Observation-level covariates:
+      wind          
+ Min.   :-0.997617  
+ 1st Qu.:-0.493880  
+ Median : 0.007348  
+ Mean   :-0.016454  
+ 3rd Qu.: 0.474305  
+ Max.   : 0.989873  
+```
+
+## あてはめ
 
 ```{r occ_unmarked_fit, echo=TRUE}
 fit_occ_unmarked <- occu(~ wind ~ elev + forest,
@@ -104,7 +150,9 @@ print(fit_occ_unmarked)
 ```
 -->
 
-## JAGS
+# JAGSによる占有モデルの当てはめ
+
+## JAGSモデル
 
 ```
 model {
@@ -150,8 +198,9 @@ summary(fit_occ_jags)
 ```
 
 
+# Stanによる占有モデルの当てはめ
 
-## Stan
+## Stanモデル
 
 ```
 data {
@@ -213,7 +262,9 @@ stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
                   Elev = occ_data$elev, Forest = occ_data$forest,
                   Wind = occ_data$wind)
 mod_occ_stan <- cmdstan_model("occ.stan")
+output_dir <- "./"
 fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                    output_dir = output_dir,
                                     chains = 4, parallel_chains = 4,
                                     iter_sampling = 1000,
                                     iter_warmup = 1000,
@@ -245,6 +296,7 @@ nmix_data <- AHMbook::simNmix(
 ```
 
 
+# unmarkedによるN混合モデルの当てはめ
 
 ## unmarked
 
@@ -269,6 +321,8 @@ fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
 print(fm2)
 ```
 
+
+# JAGSによるN混合モデルの当てはめ
 
 ## JAGS
 
@@ -316,6 +370,8 @@ fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
 summary(fit_nmix_jags)
 ```
 
+
+# StanによるN混合モデルの当てはめ
 
 ## Stan
 
@@ -373,11 +429,13 @@ stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Cov_det = nmix_data$survey.cov,
                   Max_N = max(nmix_data$C) + 100)
 mod_nmix_stan_1 <- cmdstan_model("nmix.stan")
-fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
-                                          refresh = 500)
+fit_nmix_stan_1 <- mod_nmix_stan_1$sample(
+  data = stan_data, seed = 1,
+  output_dir = output_dir,
+  chains = 4, parallel_chains = 4,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 ---
@@ -438,14 +496,17 @@ model {
 
 
 ```{r nmix_stan_2, cache=TRUE, include=FALSE}
-mod_nmix_stan_2 <- cmdstan_model("nmix_rs.stan",
-                                 cpp_options = list(stan_threads = TRUE))
-fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          threads_per_chain = 3,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
-                                          refresh = 500)
+mod_nmix_stan_2 <- cmdstan_model(
+  "nmix_rs.stan",
+  cpp_options = list(stan_threads = TRUE))
+fit_nmix_stan_2 <- mod_nmix_stan_2$sample(
+  data = stan_data, seed = 1,
+  output_dir = output_dir,
+  chains = 4, parallel_chains = 4,
+  threads_per_chain = 3,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 ```{r}
@@ -488,11 +549,13 @@ model {
 
 ```{r nmix_stan_3, cache=TRUE, include=FALSE}
 mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
-fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
-                                          chains = 4, parallel_chains = 4,
-                                          iter_sampling = 1000,
-                                          iter_warmup = 1000,
-                                          refresh = 500)
+fit_nmix_stan_3 <- mod_nmix_stan_3$sample(
+  data = stan_data, seed = 1,
+  output_dir =output_dir,
+  chains = 4, parallel_chains = 4,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 

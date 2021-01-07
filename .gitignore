@@ -38,6 +38,10 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
+
+# CmdStan output files
+*.csv
+
 # TeX files
 *.log
 
