@@ -3,7 +3,7 @@ title: |
        | R, BUGS, Stanによる
        | 階層モデルのあてはめ
 author: "伊東宏樹"
-date: "12/8/2020"
+date: "2021-03-21"
 output:
   beamer_presentation:
     latex_engine: lualatex
@@ -23,9 +23,14 @@ options(mc.cores = parallel::detectCores())
 ```
 
 
-## 目次
+## 今日の内容
 
-\tableofcontents[hideallsubsections]
+- 占有モデル
+    - 模擬データの作成
+    - unmarked, JAGS, Stanによる当てはめ
+- N混合モデル
+    - 模擬データの作成
+    - unmarked, JAGS, Stanによる当てはめ
 
 # サイト占有モデル
 
@@ -38,17 +43,19 @@ set.seed(123)
 
 ```{r gen_site_occ_data, echo=TRUE}
 occ_data <- AHMbook::simOcc(
-  M = 300,                # 300サイト
-  J = 2,                  # 2回繰り返し測定
-  mean.occupancy = 0.6,   # 平均占有確率
-  beta1 = -2,             # 占有に対する標高の効果
-  beta2 = 2,              # 占有に対する森林の効果
-  beta3 = 0,              # 占有に対する標高×森林の交互作用
-  mean.detection = 0.3,   # 平均検出確率
-  time.effects = c(0, 0), # 時間効果なし
-  alpha1 = 0,             # 検出に対する標高の効果
-  alpha2 = -3,            # 検出に対する風の効果
-  alpha3 = 0,             # 検出に対する標高×風の効果
+  M = 300,                # Number of sites
+  J = 2,                  # Number of temporal replicates
+  mean.occupancy = 0.6,   # Mean occurrence
+  beta1 = -2,             # Main effect of elev. on occ.
+  beta2 = 2,              # Main effect of forest on occ.
+  beta3 = 0,              # Interaction on occ. of elev. and forest
+  mean.detection = 0.3,   # Mean detection prob.
+  time.effects = c(0, 0), # Time effect
+  alpha1 = 0,             # Main effect of elev. on det.
+  alpha2 = -3,            # Main effect of wind speed on det.
+  alpha3 = 0,             # Interaction on det. of elev and wind
+  sd.lp = 0.5,            # S.D. of random site effects
+  b = 0,                  # Behavioral response
   show.plot = FALSE)
 ```
 
@@ -66,11 +73,13 @@ sum(apply(occ_data$y, 1, max))
 ## データの確認
 
 ```{r view_site_occ_data3, echo=TRUE}
-# 最初の6サイトのデータ (zが真の占有状態)
+# Truth and observation of the first six sites
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
-## unmarked
+# unmarkedによる占有モデルの当てはめ
+
+## unmarkedオブジェクトの作成
 
 ```{r occ_unmarked, echo=TRUE, message=FALSE}
 umf <- unmarkedFrameOccu(
@@ -80,13 +89,44 @@ umf <- unmarkedFrameOccu(
   obsCovs = list(wind = occ_data$wind))
 ```
 
-## unmarkedオブジェクト
+## summary(umf)
 
-```{r, echo=TRUE}
-summary(umf)
+```
+unmarkedFrame Object
+
+300 sites
+Maximum number of observations per site: 2 
+Mean number of observations per site: 2 
+Sites with at least one detection: 93 
+
+Tabulation of y observations:
+  0   1 
+493 107 
 ```
 
-##  あてはめ
+---
+
+```
+Site-level covariates:
+      elev                forest         
+ Min.   :-0.9987505   Min.   :-0.999069  
+ 1st Qu.:-0.4801063   1st Qu.:-0.467633  
+ Median :-0.0408648   Median :-0.026556  
+ Mean   :-0.0007763   Mean   :-0.002243  
+ 3rd Qu.: 0.4657950   3rd Qu.: 0.521011  
+ Max.   : 0.9885396   Max.   : 0.998809  
+
+Observation-level covariates:
+      wind          
+ Min.   :-0.997617  
+ 1st Qu.:-0.493880  
+ Median : 0.007348  
+ Mean   :-0.016454  
+ 3rd Qu.: 0.474305  
+ Max.   : 0.989873  
+```
+
+## あてはめ
 
 ```{r occ_unmarked_fit, echo=TRUE}
 fit_occ_unmarked <- occu(~ wind ~ elev + forest,
@@ -111,7 +151,9 @@ print(fit_occ_unmarked)
 ```
 -->
 
-## JAGS
+# JAGSによる占有モデルの当てはめ
+
+## JAGSモデル
 
 ```
 model {
@@ -165,8 +207,9 @@ summary(fit_occ_jags)
 ```
 
 
+# Stanによる占有モデルの当てはめ
 
-## Stan
+## Stanモデル
 
 ```
 data {
@@ -227,20 +270,14 @@ model {
 stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
                   Elev = occ_data$elev, Forest = occ_data$forest,
                   Wind = occ_data$wind)
-model_file <- "occ.stan"
-rds_file <- "occ_stan.RDS"
-if (file.exists(rds_file) &
-    (file.mtime(rds_file) > file.mtime(model_file))) {
-  fit_occ_stan <- readRDS(rds_file)
-} else {
-  mod_occ_stan <- cmdstan_model(model_file)
-  fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
-                                      chains = 4, parallel_chains = 4,
-                                      iter_sampling = 1000,
-                                      iter_warmup = 1000,
-                                      refresh = 500)
-  fit_occ_stan$save_object(rds_file)
-}
+mod_occ_stan <- cmdstan_model("occ.stan")
+output_dir <- "./"
+fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                    output_dir = output_dir,
+                                    chains = 4, parallel_chains = 4,
+                                    iter_sampling = 1000,
+                                    iter_warmup = 1000,
+                                    refresh = 500)
 ```
 
 ---
@@ -255,21 +292,25 @@ fit_occ_stan$summary(c("beta", "alpha"))
 
 ## 模擬データ
 
-```{r nmix_data, echo=TRUE, message=FALSE}
+```{r, include=FALSE}
 set.seed(123)
+```
+
+```{r nmix_data, echo=TRUE, message=FALSE}
 nmix_data <- AHMbook::simNmix(
-  nsites = 120,
-  nvisits = 2,
-  mean.lam = 2,
-  mean.p = 0.6,
-  beta2.lam = 0.5,
-  beta.p.survey = 0.8,
+  nsites = 120,         # Number of sites
+  nvisits = 2,          # Number of visits pre site
+  mean.lam = 2,         # Expected abundance
+  mean.p = 0.6,         # Expected detection
+  beta2.lam = 0.5,      # Coef. of site covariate 2 in abundance model
+  beta.p.survey = 0.8,  # Coef. of survey covariate on p
   show.plots = FALSE)
 ```
 
 
+# unmarkedによるN混合モデルの当てはめ
 
-## unmarked
+## unmarkedオブジェクトの作成
 
 ```{r nmix_unmarked, echo=TRUE}
 umf <- unmarkedFramePCount(
@@ -279,24 +320,53 @@ umf <- unmarkedFramePCount(
   obsCovs = list(survey_cov = nmix_data$survey.cov))
 ```
 
-## unmarkedオブジェクト
+## summary(umf)
 
-```{r, echo=TRUE}
-summary(umf)
 ```
+unmarkedFrame Object
+
+120 sites
+Maximum number of observations per site: 2 
+Mean number of observations per site: 2 
+Sites with at least one detection: 100 
+
+Tabulation of y observations:
+ 0  1  2  3  4  5  6 
+69 86 44 26  9  4  2 
+```
+
+---
+
+```
+Site-level covariates:
+    site_cov       
+ Min.   :-1.95813  
+ 1st Qu.:-0.93791  
+ Median :-0.08173  
+ Mean   :-0.01629  
+ 3rd Qu.: 0.76828  
+ Max.   : 1.94256  
+
+Observation-level covariates:
+   survey_cov      
+ Min.   :-1.99523  
+ 1st Qu.:-0.97282  
+ Median : 0.05019  
+ Mean   :-0.01689  
+ 3rd Qu.: 0.97496  
+ Max.   : 1.96868  
+```
+
 
 ## あてはめ
 
 ```{r nmix_unmarked_fit, echo=TRUE}
-fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf)
-```
-
-## 結果
-
-```{r nmix_unmarked_result, echo=TRUE}
+fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf, K = 110)
 print(fm2)
 ```
 
+
+# JAGSによるN混合モデルの当てはめ
 
 ## JAGS
 
@@ -353,6 +423,8 @@ summary(fit_nmix_jags)
 ```
 
 
+# StanによるN混合モデルの当てはめ
+
 ## Stan
 
 ```
@@ -408,20 +480,14 @@ stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
                   Max_N = max(nmix_data$C) + 100)
-model_file <- "nmix.stan"
-rds_file <- "nmix_stan_1.RDS"
-if (file.exists(rds_file) &
-    (file.mtime(rds_file) > file.mtime(model_file))) {
-  fit_nmix_stan_1 <- readRDS(rds_file)
-} else {
-  mod_nmix_stan_1 <- cmdstan_model(model_file)
-  fit_nmix_stan_1 <- mod_nmix_stan_1$sample(data = stan_data, seed = 1,
-                                            chains = 4, parallel_chains = 4,
-                                            iter_sampling = 1000,
-                                            iter_warmup = 1000,
-                                          refresh = 500)
-  fit_nmix_stan_1$save_object(rds_file)
-}
+mod_nmix_stan_1 <- cmdstan_model("nmix.stan")
+fit_nmix_stan_1 <- mod_nmix_stan_1$sample(
+  data = stan_data, seed = 1,
+  output_dir = output_dir,
+  chains = 4, parallel_chains = 4,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 ---
@@ -482,23 +548,19 @@ model {
 ```
 
 
-```{r nmix_stan_2, include=FALSE}
-model_file <- "nmix_rs.stan"
-rds_file <- "nmix_stan_2.RDS"
-if (file.exists(rds_file) &
-    (file.mtime(rds_file) > file.mtime(model_file))) {
-  fit_nmix_stan_2 <- readRDS(rds_file)
-} else {
-  mod_nmix_stan_2 <- cmdstan_model(model_file,
-                                   cpp_options = list(stan_threads = TRUE))
-  fit_nmix_stan_2 <- mod_nmix_stan_2$sample(data = stan_data, seed = 1,
-                                            chains = 4, parallel_chains = 4,
-                                            threads_per_chain = 3,
-                                            iter_sampling = 1000,
-                                            iter_warmup = 1000,
-                                            refresh = 500)
-  fit_nmix_stan_2$save_object(rds_file)
-}
+
+```{r nmix_stan_2, cache=TRUE, include=FALSE}
+mod_nmix_stan_2 <- cmdstan_model(
+  "nmix_rs.stan",
+  cpp_options = list(stan_threads = TRUE))
+fit_nmix_stan_2 <- mod_nmix_stan_2$sample(
+  data = stan_data, seed = 1,
+  output_dir = output_dir,
+  chains = 4, parallel_chains = 4,
+  threads_per_chain = 3,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 ```{r}
@@ -540,21 +602,15 @@ model {
 }
 ```
 
-```{r nmix_stan_3, include=FALSE}
-model_file <- "nmix_bp.stan"
-rds_file <- "nmix_stan_3.RDS"
-if (file.exists(rds_file) &
-    (file.mtime(rds_file) > file.mtime(model_file))) {
-  fit_nmix_stan_3 <- readRDS(rds_file)
-} else {
-  mod_nmix_stan_3 <- cmdstan_model(model_file)
-  fit_nmix_stan_3 <- mod_nmix_stan_3$sample(data = stan_data, seed = 1,
-                                            chains = 4, parallel_chains = 4,
-                                            iter_sampling = 1000,
-                                            iter_warmup = 1000,
-                                            refresh = 500)
-  fit_nmix_stan_3$save_object(rds_file)
-}
+```{r nmix_stan_3, cache=TRUE, include=FALSE}
+mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
+fit_nmix_stan_3 <- mod_nmix_stan_3$sample(
+  data = stan_data, seed = 1,
+  output_dir =output_dir,
+  chains = 4, parallel_chains = 4,
+  iter_sampling = 1000,
+  iter_warmup = 1000,
+  refresh = 500)
 ```
 
 
