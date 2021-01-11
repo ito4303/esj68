@@ -1,0 +1,17 @@
+model {
+  for (m in 1:M) {
+    log(lambda[m]) <- beta[1] + beta[2] * cov.abn[m]
+    n[m] ~ dpois(lambda[m])
+    for (j in 1:J) {
+      logit(p[m, j]) <- alpha[1] + alpha[2] * cov.det[m, j]
+      y[m, j] ~ dbin(p[m, j], n[m])
+    }
+  }
+  # priors
+  for (i in 1:2) {
+    beta[i] ~ dnorm(0, 1.0e-2)
+  }
+  for (i in 1:2) {
+    alpha[i] ~ dnorm(0, 1.0e-2)
+  }
+}
