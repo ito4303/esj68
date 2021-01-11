@@ -11,7 +11,6 @@ functions {
    */
   real n_mixture_log_lpmf(int[] count, int max_n,
                           real log_lambda, vector logit_p) {
-                 
     int c_max = max(count);
     vector[max_n + 1] lp;
 

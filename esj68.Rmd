@@ -25,10 +25,10 @@ options(mc.cores = parallel::detectCores())
 
 ## 今日の内容
 
-- 占有モデル
+- サイト占有モデル
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
-- N混合モデル
+- $N$混合モデル
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
 
@@ -89,53 +89,17 @@ umf <- unmarkedFrameOccu(
   obsCovs = list(wind = occ_data$wind))
 ```
 
-## summary(umf)
+## unmarkedオブジェクト
 
-```
-unmarkedFrame Object
-
-300 sites
-Maximum number of observations per site: 2 
-Mean number of observations per site: 2 
-Sites with at least one detection: 93 
-
-Tabulation of y observations:
-  0   1 
-493 107 
+```{r occ_unmarked_summary, echo=TRUE}
+summary(umf)
 ```
 
----
-
-```
-Site-level covariates:
-      elev                forest         
- Min.   :-0.9987505   Min.   :-0.999069  
- 1st Qu.:-0.4801063   1st Qu.:-0.467633  
- Median :-0.0408648   Median :-0.026556  
- Mean   :-0.0007763   Mean   :-0.002243  
- 3rd Qu.: 0.4657950   3rd Qu.: 0.521011  
- Max.   : 0.9885396   Max.   : 0.998809  
-
-Observation-level covariates:
-      wind          
- Min.   :-0.997617  
- 1st Qu.:-0.493880  
- Median : 0.007348  
- Mean   :-0.016454  
- 3rd Qu.: 0.474305  
- Max.   : 0.989873  
-```
 
 ## あてはめ
 
 ```{r occ_unmarked_fit, echo=TRUE}
-fit_occ_unmarked <- occu(~ wind ~ elev + forest,
-                         data = umf)
-```
-
-## 結果
-
-```{r occ_unmarked_results, echo=TRUE}
+fit_occ_unmarked <- occu(~ wind ~ elev + forest, data = umf)
 print(fit_occ_unmarked)
 ```
 
@@ -155,27 +119,14 @@ print(fit_occ_unmarked)
 
 ## JAGSモデル
 
-```
-model {
-  for (m in 1:M) {
-    logit(psi[m]) <- beta[1] + beta[2] * elev[m] + 
-                     beta[3] * forest[m]
-    z[m] ~ dbern(psi[m])
-    for (j in 1:J) {
-      logit(p[m, j]) <- alpha[1] + alpha[2] * wind[m, j]
-      y[m, j] ~ dbern(z[m] * p[m, j])
-    }
-  }
-  for (i in 1:3) {
-    beta[i] ~ dnorm(0, 1.0e-2)
-  }
-  for (i in 1:2) {
-    alpha[i] ~ dnorm(0, 1.0e-2)
-  }
-}
+```{r, message=FALSE}
+model_file <- "occ.txt"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s, sep = "\n")
 ```
 
-## Fit
+
+## 結果
 
 ```{r occ_jags, include=FALSE}
 set.seed(1)
@@ -187,7 +138,6 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        z = rep(1, occ_data$M))
 }
-model_file <- "occ.txt"
 rdata_file <- "occ_jags.RData"
 if (file.exists(rdata_file) &
     (file.mtime(rdata_file) > file.mtime(model_file))) {
@@ -202,93 +152,61 @@ if (file.exists(rdata_file) &
 }
 ```
 
-```{r}
-summary(fit_occ_jags)
+```{r occ_jags_summary, echo=TRUE}
+summary(fit_occ_jags)$statistics
 ```
 
 
-# Stanによる占有モデルの当てはめ
+# Stanによる占有モデルのあてはめ
 
 ## Stanモデル
 
-```
-data {
-  int<lower = 0> M;
-  int<lower = 0> J;
-  int<lower = 0, upper = 1> Y[M, J];
-  vector[M] Elev;
-  vector[M] Forest;
-  matrix[M, J] Wind;
-}
-transformed data {
-  int<lower = 0> Ysum[M];
-
-  for (m in 1:M)
-    Ysum[m] = sum(Y[m, ]);
-}
-```
-
----
-
-```
-parameters {
-  vector[3] beta;
-  vector[2] alpha;
-}
-transformed parameters {
-  vector[M] logit_psi = beta[1]
-                        + beta[2] * Elev
-                        + beta[3] * Forest;
-  matrix[M, J] logit_p = alpha[1]
-                         + alpha[2] * Wind;
-}
-```
-
----
-
-```
-model {
-  for (m in 1:M) {
-    if (Ysum[m] > 0) { // detected
-      target += bernoulli_logit_lpmf(1 | logit_psi[m])
-              + bernoulli_logit_lpmf(Y[m, ] | logit_p[m, ]);
-    } else {          // not detected
-      real lp[2];
-
-      lp[1] = bernoulli_logit_lpmf(0 | logit_psi[m]);
-      lp[2] = bernoulli_logit_lpmf(1 | logit_psi[m])
-            + bernoulli_logit_lpmf(Y[m, ] | logit_p[m, ]);
-      target += log_sum_exp(lp);
-    }
-  }
-  beta ~ normal(0, 10);
-  alpha ~ normal(0, 10);
-}
-```
-
-```{r occ_stan, include=FALSE}
-stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
-                  Elev = occ_data$elev, Forest = occ_data$forest,
-                  Wind = occ_data$wind)
-mod_occ_stan <- cmdstan_model("occ.stan")
-output_dir <- "./"
-fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
-                                    output_dir = output_dir,
-                                    chains = 4, parallel_chains = 4,
-                                    iter_sampling = 1000,
-                                    iter_warmup = 1000,
-                                    refresh = 500)
+```{r, message=FALSE}
+model_file <- "occ.stan"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s[1:13], sep = "\n")
 ```
 
 ---
 
 ```{r}
-fit_occ_stan$summary(c("beta", "alpha"))
+cat(s[14:24], sep = "\n")
+```
+
+---
+
+```{r}
+cat(s[25:40], sep = "\n")
+```
+
+## 結果
+
+```{r occ_stan, include=FALSE}
+output_file <- "occ_stan.RDS"
+if (file.exists(output_file) &
+    file.mtime(output_file) > file.mtime(model_file)) {
+  fit_occ_stan <- readRDS(output_file)
+} else {
+  stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
+                    Elev = occ_data$elev, Forest = occ_data$forest,
+                    Wind = occ_data$wind)
+  mod_occ_stan <- cmdstan_model(model_file)
+  fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                      chains = 4, parallel_chains = 4,
+                                      iter_sampling = 1000,
+                                      iter_warmup = 1000,
+                                    refresh = 500)
+  fit_occ_stan$save_object(output_file)
+}
+```
+
+```{r occ_stan_summary, echo=TRUE}
+fit_occ_stan$print(c("beta", "alpha"))
 ```
 
 
 
-# N-混合モデル
+# $N$混合モデル
 
 ## 模擬データ
 
@@ -308,7 +226,7 @@ nmix_data <- AHMbook::simNmix(
 ```
 
 
-# unmarkedによるN混合モデルの当てはめ
+# unmarkedによる$N$混合モデルの当てはめ
 
 ## unmarkedオブジェクトの作成
 
@@ -320,41 +238,10 @@ umf <- unmarkedFramePCount(
   obsCovs = list(survey_cov = nmix_data$survey.cov))
 ```
 
-## summary(umf)
+## unmarkedオブジェクト
 
-```
-unmarkedFrame Object
-
-120 sites
-Maximum number of observations per site: 2 
-Mean number of observations per site: 2 
-Sites with at least one detection: 100 
-
-Tabulation of y observations:
- 0  1  2  3  4  5  6 
-69 86 44 26  9  4  2 
-```
-
----
-
-```
-Site-level covariates:
-    site_cov       
- Min.   :-1.95813  
- 1st Qu.:-0.93791  
- Median :-0.08173  
- Mean   :-0.01629  
- 3rd Qu.: 0.76828  
- Max.   : 1.94256  
-
-Observation-level covariates:
-   survey_cov      
- Min.   :-1.99523  
- 1st Qu.:-0.97282  
- Median : 0.05019  
- Mean   :-0.01689  
- 3rd Qu.: 0.97496  
- Max.   : 1.96868  
+```{r nmix_unmarked_summary, echo=TRUE}
+summary(umf)
 ```
 
 
@@ -366,31 +253,18 @@ print(fm2)
 ```
 
 
-# JAGSによるN混合モデルの当てはめ
+# JAGSによる$N$混合モデルの当てはめ
 
 ## JAGS
 
-```
-model {
-  for (m in 1:M) {
-    log(lambda[m]) <- beta[1] + beta[2] * cov.abn[m]
-    n[m] ~ dpois(lambda[m])
-    for (j in 1:J) {
-      logit(p[m, j]) <- alpha[1] +
-                        alpha[2] * cov.det[m, j]
-      y[m, j] ~ dbin(p[m, j], n[m])
-    }
-  }
-  for (i in 1:2) {
-    beta[i] ~ dnorm(0, 1.0e-2)
-  }
-  for (i in 1:2) {
-    alpha[i] ~ dnorm(0, 1.0e-2)
-  }
-}
+```{r, message=FALSE}
+model_file <- "nmix.txt"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s, sep = "\n")
 ```
 
----
+
+## 結果
 
 ```{r nmix_jags, include=FALSE}
 set.seed(1)
@@ -403,7 +277,6 @@ ini_fun <- function() {
        alpha = rnorm(2, 0, 2),
        n = apply(nmix_data$C, 1, max))
 }
-model_file <- "nmix.txt"
 rdata_file <- "nmix_jags.RData"
 if (file.exists(rdata_file) &
     (file.mtime(rdata_file) > file.mtime(model_file))) {
@@ -419,204 +292,144 @@ if (file.exists(rdata_file) &
 ```
 
 ```{r, echo=TRUE}
-summary(fit_nmix_jags)
+print(summary(fit_nmix_jags)$statistics)
 ```
 
 
-# StanによるN混合モデルの当てはめ
+# Stanによる$N$混合モデルの当てはめ
 
 ## Stan
 
-```
-data {
-  int<lower = 0> M;
-  int<lower = 0> J;
-  int<lower = 0> Y[M, J];
-  vector[M] Cov_abn;
-  matrix[M, J] Cov_det;
-  int<lower = 0> Max_N;
-}
+```{r, message=FALSE}
+model_file <- "nmix.stan"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s[1:8], sep = "\n")
 ```
 
 ---
 
-```
-parameters {
-  vector[2] beta;
-  vector[2] alpha;
-}
-
-transformed parameters {
-  vector[M] log_lambda = beta[1]
-                         + beta[2] * Cov_abn;
-  matrix[M, J] logit_p = alpha[1]
-                         + alpha[2] * Cov_det;
-}
+```{r}
+cat(s[9:18], sep = "\n")
 ```
 
 ---
 
-```
-model {
-  for (m in 1:M) {
-    int y_max = max(Y[m]);
-    vector[Max_N + 1] lp;
 
-    for (n in 0:(y_max - 1))
-      lp[n + 1] = negative_infinity();
-    for (n in y_max:Max_N)
-      lp[n + 1] = poisson_log_lpmf(n | log_lambda[m])
-                + binomial_logit_lpmf(Y[m, ] | n, logit_p[m, ]);
-    target += log_sum_exp(lp);
-  }
-  beta ~ normal(0, 10);
-  alpha ~ normal(0, 10);
-}
+```{r}
+cat(s[19:32], sep = "\n")
 ```
+
+## 結果
 
 ```{r nmix_stan_1, include=FALSE}
+output_file <- "nmix_stan1.RDS"
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
                   Y = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
                   Max_N = max(nmix_data$C) + 100)
-mod_nmix_stan_1 <- cmdstan_model("nmix.stan")
-fit_nmix_stan_1 <- mod_nmix_stan_1$sample(
-  data = stan_data, seed = 1,
-  output_dir = output_dir,
-  chains = 4, parallel_chains = 4,
-  iter_sampling = 1000,
-  iter_warmup = 1000,
-  refresh = 500)
+if (file.exists(output_file) &
+    file.mtime(output_file) > file.mtime(model_file)) {
+  fit_nmix_stan_1 <- readRDS(output_file)
+} else {
+  mod_nmix_stan_1 <- cmdstan_model(model_file)
+  fit_nmix_stan_1 <- mod_nmix_stan_1$sample(
+    data = stan_data, seed = 1,
+    chains = 4, parallel_chains = 4,
+    iter_sampling = 1000,
+    iter_warmup = 1000,
+    refresh = 500)
+  fit_nmix_stan_1$save_object(output_file)
+}
+```
+
+```{r nmix1_stan_summary, echo=TRUE}
+fit_nmix_stan_1$print(c("beta", "alpha"))
+```
+
+## Reduce Sum による並列化
+
+
+```{r, message=FALSE}
+model_file <- "nmix_rs.stan"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s[c(1, 12:34)], sep = "\n")
 ```
 
 ---
 
 ```{r}
-fit_nmix_stan_1$summary(c("beta", "alpha"))
+cat(s[56:62], sep = "\n")
 ```
 
-## Reduce Sum
 
-```
-functions {
-  real n_mixture_log_lpmf(int[] count, int max_n,
-                          real log_lambda, vector logit_p) {
-                 
-    int c_max = max(count);
-    vector[max_n + 1] lp;
-
-    for (k in 0:(c_max - 1))
-      lp[k + 1] = negative_infinity();
-    for (k in c_max:max_n) 
-      lp[k + 1] = poisson_log_lpmf(k | log_lambda)
-                  + binomial_logit_lpmf(count | k, logit_p);
-    return log_sum_exp(lp);
-  }
-```
-
----
-
-```
-  real partial_sum(int[] site,
-                   int start, int end,
-                   int[, ] count,
-                   int max_n,
-                   vector log_lambda, matrix logit_p) {
-    real lp = 0;
-
-    for (m in start:end)
-      lp = lp
-         + n_mixture_log_lpmf(count[m] |
-                           max_n, log_lambda[m], logit_p[m, ]');
-    return lp;
-  }
+```{r nmix_stan_2, include=FALSE}
+output_file <- "nmix_stan2.RDS"
+if (file.exists(output_file) &
+    file.mtime(output_file) > file.mtime(model_file)) {
+  fit_nmix_stan_2 <- readRDS(output_file)
+} else {
+  mod_nmix_stan_2 <- cmdstan_model(model_file,
+                                   cpp_options = list(stan_threads = TRUE))
+  fit_nmix_stan_2 <- mod_nmix_stan_2$sample(
+    data = stan_data, seed = 1,
+    chains = 4, parallel_chains = 4,
+    threads_per_chain = 3,
+    iter_sampling = 1000,
+    iter_warmup = 1000,
+    refresh = 500)
+  fit_nmix_stan_2$save_object(output_file)
 }
 ```
 
----
-
-```
-model {
-  int grainsize = 1;
-
-  target += reduce_sum(partial_sum, site, grainsize, Y, Max_N,
-                       log_lambda, logit_p);
-  beta ~ normal(0, 10);
-  alpha ~ normal(0, 10);
-}
-```
-
-
-
-```{r nmix_stan_2, cache=TRUE, include=FALSE}
-mod_nmix_stan_2 <- cmdstan_model(
-  "nmix_rs.stan",
-  cpp_options = list(stan_threads = TRUE))
-fit_nmix_stan_2 <- mod_nmix_stan_2$sample(
-  data = stan_data, seed = 1,
-  output_dir = output_dir,
-  chains = 4, parallel_chains = 4,
-  threads_per_chain = 3,
-  iter_sampling = 1000,
-  iter_warmup = 1000,
-  refresh = 500)
-```
-
-```{r}
+```{r nmix_stan_2_summary, echo=TRUE}
 fit_nmix_stan_2$summary(c("beta", "alpha"))
 ```
 
-## Bivariate Poisson
+## 二変量ポアソン分布を使用したモデル化
 
-```
-functions {
-  real bivariate_poisson_log_lpmf(int[] n, real log_lambda,
-                                  vector p) {
-    real s[min(n) + 1];
-    real log_theta_2 = log_lambda + log(p[1]) + log1m(p[2]);
-    real log_theta_1 = log_lambda + log1m(p[1]) + log(p[2]);
-    real log_theta_0 = log_lambda + log(p[1]) + log(p[2]);
-
-    if (size(n) != 2 || num_elements(p) != 2)
-      reject("Size of n and p must be 2.");
-    if (p[1] < 0 || p[1] > 1 || p[2] < 0 || p[2] > 1)
-      reject("p must be in [0,1].");
-    for (u in 0:min(n))
-      s[u + 1] = poisson_log_lpmf(n[1] - u | log_theta_2)
-               + poisson_log_lpmf(n[2] - u | log_theta_1)
-               + poisson_log_lpmf(u | log_theta_0);
-    return log_sum_exp(s);
-  }
-}
+```{r, message=FALSE}
+model_file <- "nmix_bp.stan"
+s <- scan(model_file, what = character(), sep = "\n")
+cat(s[c(1, 19:34)], sep = "\n")
 ```
 
 ---
 
+```{r}
+cat(s[53:58], sep = "\n")
 ```
-model {
-  for (m in 1:M)
-    Y[m, ] ~ bivariate_poisson_log(log_lambda[m], p[m, ]');
-  beta ~ normal(0, 10);
-  alpha ~ normal(0, 10);
+
+## 結果
+
+```{r nmix_stan_3, include=FALSE}
+output_file <- "nmix_stan3.RDS"
+if (file.exists(output_file) &
+    file.mtime(output_file) > file.mtime(model_file)) {
+  fit_nmix_stan_3 <- readRDS(output_file)
+} else {
+  mod_nmix_stan_3 <- cmdstan_model(model_file)
+  fit_nmix_stan_3 <- mod_nmix_stan_3$sample(
+    data = stan_data, seed = 1,
+    chains = 4, parallel_chains = 4,
+    iter_sampling = 1000,
+    iter_warmup = 1000,
+    refresh = 500)
+  fit_nmix_stan_3$save_object(output_file)
 }
 ```
 
-```{r nmix_stan_3, cache=TRUE, include=FALSE}
-mod_nmix_stan_3 <- cmdstan_model("nmix_bp.stan")
-fit_nmix_stan_3 <- mod_nmix_stan_3$sample(
-  data = stan_data, seed = 1,
-  output_dir =output_dir,
-  chains = 4, parallel_chains = 4,
-  iter_sampling = 1000,
-  iter_warmup = 1000,
-  refresh = 500)
-```
 
-
-```{r}
+```{r nmix_stan_3_summary, echo=TRUE}
 fit_nmix_stan_3$summary(c("beta", "alpha"))
 ```
 
+## まとめ
+
+- unmarked, JAGS, Stan のそれぞれで、サイト占有モデルや$N$混合モデルのあてはめができる。
+- モデル構造が比較的単純なら、unmarkedが簡単。
+- モデルが複雑になると、JAGSやStanによるモデルの記述が必要になるかもしれない。
+- Stanでは、離散パラメータを扱えないが、周辺化消去したり、アルゴリズムを工夫することで、サイト占有モデルや、$N$混合モデルを扱える。
+    - ただし、モデルの記述が直感的ではなくなる場合もある。
 
 

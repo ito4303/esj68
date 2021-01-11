@@ -5,22 +5,22 @@
   pdfencoding=auto
 }
 
-%% フォントの設定
+%% Font settings
 \setsansfont[Scale=1.0]{TeX Gyre Heros}
-%% http://mathematicalcoffee.blogspot.com/2012/03/getting-straight-single-quotes-for.html
-%\setmonofont[Scale=MatchLowercase,Ligatures=Common]{Latin Modern Mono}
-
-%% 日本語フォントの設定
+\usepackage{unicode-math}
+\unimathsetup{math-style=ISO,bold-style=ISO}
+\setmathfont[Scale=MatchLowercase]{FiraMath-Regular.otf}
+\setmathrm[Scale=MatchLowercase]{FiraMath-Regular.otf}
 \usepackage[deluxe,noto-otf]{luatexja-preset}
 \renewcommand{\kanjifamilydefault}{\gtdefault}
 
-%% change fontsize of R code
+%% Font size for R codes
 % https://stackoverflow.com/questions/38323331/code-chunk-font-size-in-beamer-with-knitr-and-latex
 \let\oldShaded\Shaded
 \let\endoldShaded\endShaded
 \renewenvironment{Shaded}{\footnotesize\oldShaded}{\endoldShaded}
 
-%% change fontsize of output
+%% Font size for outputs
 \let\oldverbatim\verbatim
 \let\endoldverbatim\endverbatim
 \renewenvironment{verbatim}{\scriptsize\oldverbatim}{\endoldverbatim}
