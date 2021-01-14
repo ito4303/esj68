@@ -99,21 +99,33 @@ summary(umf)
 ## あてはめ
 
 ```{r occ_unmarked_fit, echo=TRUE}
-fit_occ_unmarked <- occu(~ wind ~ elev + forest, data = umf)
-print(fit_occ_unmarked)
+fm0 <- occu(~ 1  ~ 1, data = umf)
+print(fm0)
+
+fm1 <- occu(~ wind ~ elev + forest, data = umf)
+print(fm1)
 ```
 
 <!--
 ```{r, echo=TRUE}
-#backTransform(fm1, "state")
+#backTransform(fm0, "state")
 ```
 -->
 
 <!--
 ```{r, echo=TRUE}
-#backTransform(fm1, "det")
+#backTransform(fm0, "det")
 ```
 -->
+
+
+## モデル選択
+
+```{r}
+fms <- fitList('psi(.)p(.)' = fm0, 'psi(Wind)p(Elev+Forest)' = fm1)
+modSel(fms)
+```
+
 
 # JAGSによる占有モデルの当てはめ
 
