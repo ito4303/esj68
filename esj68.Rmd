@@ -22,8 +22,7 @@ library(cmdstanr)
 options(mc.cores = parallel::detectCores())
 ```
 
-
-## 今日の内容
+## 本日の発表内容
 
 - サイト占有モデル
     - 模擬データの作成
@@ -31,6 +30,13 @@ options(mc.cores = parallel::detectCores())
 - $N$混合モデル
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
+
+## 本日のコード
+
+本日のコードは以下の場所に置いてあります。
+
+https://github.com/ito4303/esj68
+
 
 # サイト占有モデル
 
@@ -96,14 +102,17 @@ summary(umf)
 ```
 
 
-## あてはめ
+## あてはめ（切片だけのモデル）
 
 ```{r occ_unmarked_fit, echo=TRUE}
-fm0 <- occu(~ 1  ~ 1, data = umf)
-print(fm0)
+(fm0 <- occu(~ 1  ~ 1, data = umf))
+```
 
-fm1 <- occu(~ wind ~ elev + forest, data = umf)
-print(fm1)
+
+## あてはめ（共変量のあるモデル）
+
+```{r occ_unmarked_fit2, echo=TRUE}
+(fm1 <- occu(~ wind ~ elev + forest, data = umf))
 ```
 
 <!--
