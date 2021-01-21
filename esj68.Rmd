@@ -1,7 +1,5 @@
 ---
-title: |
-       | R, BUGS, Stanによる
-       | 階層モデルのあてはめ
+title: R, BUGS, Stanによる階層モデルのあてはめ
 author: "伊東宏樹"
 date: "2021-03-21"
 output:
@@ -24,10 +22,10 @@ options(mc.cores = parallel::detectCores())
 
 ## 本日の発表内容
 
-- サイト占有モデル
+- **サイト占有モデル**
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
-- $N$混合モデル
+- ***N*** **混合モデル**
     - 模擬データの作成
     - unmarked, JAGS, Stanによる当てはめ
 
@@ -227,7 +225,7 @@ fit_occ_stan$print(c("beta", "alpha"))
 
 
 
-# $N$混合モデル
+# *N*混合モデル
 
 ## 模擬データ
 
@@ -247,7 +245,7 @@ nmix_data <- AHMbook::simNmix(
 ```
 
 
-# unmarkedによる$N$混合モデルの当てはめ
+# unmarkedによる*N*混合モデルの当てはめ
 
 ## unmarkedオブジェクトの作成
 
@@ -274,7 +272,7 @@ print(fm2)
 ```
 
 
-# JAGSによる$N$混合モデルの当てはめ
+# JAGSによる*N*混合モデルの当てはめ
 
 ## JAGS
 
@@ -317,7 +315,7 @@ print(summary(fit_nmix_jags)$statistics)
 ```
 
 
-# Stanによる$N$混合モデルの当てはめ
+# Stanによる*N*混合モデルの当てはめ
 
 ## Stan
 
