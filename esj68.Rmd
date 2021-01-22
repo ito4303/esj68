@@ -81,6 +81,14 @@ sum(apply(occ_data$y, 1, max))
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
+## plot
+
+\includegraphics[width=11cm]{occ_data-1.pdf}
+
+## plot
+
+\includegraphics[width=11cm]{occ_data-2.pdf}
+
 # unmarkedによる占有モデルの当てはめ
 
 ## unmarkedオブジェクトの作成
