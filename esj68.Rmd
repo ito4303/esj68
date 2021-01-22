@@ -52,7 +52,7 @@ occ_data <- AHMbook::simOcc(
   mean.occupancy = 0.6,   # Mean occurrence
   beta1 = -2,             # Main effect of elev. on occ.
   beta2 = 2,              # Main effect of forest on occ.
-  beta3 = 0,              # Interaction on occ. of elev. and forest
+  beta3 = 0,              # Interaction of elev. and forest
   mean.detection = 0.3,   # Mean detection prob.
   time.effects = c(0, 0), # Time effect
   alpha1 = 0,             # Main effect of elev. on det.
@@ -66,18 +66,23 @@ occ_data <- AHMbook::simOcc(
 
 ## データの確認
 
-```{r view_site_occ_data, echo=TRUE}
-# 真の占有サイト数
-sum(occ_data$z)
+真の占有サイト数
 
-# 観測された占有サイト数
+```{r view_site_occ_data1, echo=TRUE}
+sum(occ_data$z)
+```
+
+観測された占有サイト数
+
+```{r view_site_occ_data2, echo=TRUE}
 sum(apply(occ_data$y, 1, max))
 ```
 
 ## データの確認
 
+最初の6サイトの真値と観測値
+
 ```{r view_site_occ_data3, echo=TRUE}
-# Truth and observation of the first six sites
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
@@ -174,13 +179,13 @@ if (file.exists(rdata_file) &
                              inits = ini_fun, n.chains = 3)
   update(mod_occ_jags, 1000)
   fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
-                               variable.names = c("beta", "alpha"))
+                               variable.names = c("beta", "alpha", "z"))
   save(fit_occ_jags, file = rdata_file)
 }
 ```
 
 ```{r occ_jags_summary, echo=TRUE}
-summary(fit_occ_jags)$statistics
+summary(fit_occ_jags)$statistics[1:5, ]
 ```
 
 
@@ -232,7 +237,6 @@ fit_occ_stan$print(c("beta", "alpha"))
 ```
 
 
-
 # *N*混合モデル
 
 ## 模擬データ
@@ -247,7 +251,8 @@ nmix_data <- AHMbook::simNmix(
   nvisits = 2,          # Number of visits pre site
   mean.lam = 2,         # Expected abundance
   mean.p = 0.6,         # Expected detection
-  beta2.lam = 0.5,      # Coef. of site covariate 2 in abundance model
+  beta2.lam = 0.5,      # Coef. of site covariate 2
+                        # in abundance model
   beta.p.survey = 0.8,  # Coef. of survey covariate on p
   show.plots = FALSE)
 ```
@@ -313,13 +318,13 @@ if (file.exists(rdata_file) &
                               inits = ini_fun, n.chains = 3)
   update(mod_nmix_jags, 1000)
   fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
-                                variable.names = c("beta", "alpha"))
+                                variable.names = c("beta", "alpha", "n"))
   save(fit_nmix_jags, file = rdata_file)
 }
 ```
 
 ```{r, echo=TRUE}
-print(summary(fit_nmix_jags)$statistics)
+print(summary(fit_nmix_jags)$statistics[1:4, ])
 ```
 
 
@@ -336,14 +341,25 @@ cat(s[1:8], sep = "\n")
 ---
 
 ```{r}
-cat(s[9:18], sep = "\n")
+cat(s[9:12], sep = "\n")
 ```
 
 ---
 
+```{r}
+cat(s[13:25], sep = "\n")
+```
+
+---
 
 ```{r}
-cat(s[19:32], sep = "\n")
+cat(s[26:32], sep = "\n")
+```
+
+---
+
+```{r}
+cat(s[33:37], sep = "\n")
 ```
 
 ## 結果
@@ -380,20 +396,33 @@ fit_nmix_stan_1$print(c("beta", "alpha"))
 ```{r, message=FALSE}
 model_file <- "nmix_rs.stan"
 s <- scan(model_file, what = character(), sep = "\n")
-cat(s[c(1, 12:34)], sep = "\n")
+cat(s[c(1, 12:22)], sep = "\n")
 ```
 
 ---
 
 ```{r}
-cat(s[56:62], sep = "\n")
+cat(s[23:33], sep = "\n")
 ```
 
+---
+
+```{r}
+cat(s[34:45], sep = "\n")
+```
+
+---
+
+```{r}
+cat(s[67:73], sep = "\n")
+```
+
+---
 
 ```{r nmix_stan_2, include=FALSE}
 output_file <- "nmix_stan2.RDS"
 if (file.exists(output_file) &
-    file.mtime(output_file) > file.mtime(model_file)) {
+    (file.mtime(output_file) > file.mtime(model_file))) {
   fit_nmix_stan_2 <- readRDS(output_file)
 } else {
   mod_nmix_stan_2 <- cmdstan_model(model_file,
@@ -409,6 +438,8 @@ if (file.exists(output_file) &
 }
 ```
 
+## 結果
+
 ```{r nmix_stan_2_summary, echo=TRUE}
 fit_nmix_stan_2$summary(c("beta", "alpha"))
 ```
@@ -418,13 +449,13 @@ fit_nmix_stan_2$summary(c("beta", "alpha"))
 ```{r, message=FALSE}
 model_file <- "nmix_bp.stan"
 s <- scan(model_file, what = character(), sep = "\n")
-cat(s[c(1, 19:34)], sep = "\n")
+cat(s[c(1, 19:33)], sep = "\n")
 ```
 
 ---
 
 ```{r}
-cat(s[53:58], sep = "\n")
+cat(s[62:67], sep = "\n")
 ```
 
 ## 結果
