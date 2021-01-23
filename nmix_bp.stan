@@ -32,6 +32,19 @@ functions {
                + poisson_log_lpmf(u | log_theta_0);
     return log_sum_exp(s);
   }
+
+  int n_mixture_rng(int[] count, int max_n,
+                    real log_lambda, vector p) {
+    int c_max = max(count);
+    vector[max_n + 1] lp;
+
+    for (k in 0:(c_max - 1))
+      lp[k + 1] = negative_infinity();
+    for (k in c_max:max_n) 
+      lp[k + 1] = poisson_log_lpmf(k | log_lambda)
+                  + binomial_lpmf(count | k, p);
+    return categorical_rng(softmax(lp)) - 1;
+  }
 }
 
 data {
@@ -49,15 +62,20 @@ parameters {
 }
 
 transformed parameters {
-  vector[M] log_lambda = beta[1]
-                         + beta[2] * Cov_abn;
-  matrix[M, J] p = inv_logit(alpha[1]
-                             + alpha[2] * Cov_det);
+  vector[M] log_lambda = beta[1] + beta[2] * Cov_abn;
+  matrix[M, J] p = inv_logit(alpha[1] + alpha[2] * Cov_det);
 }
 
 model {
   for (m in 1:M)
-    Y[m, ] ~ bivariate_poisson_log(log_lambda[m], p[m, ]');
+    Y[m, ] ~ bivariate_poisson_log(log_lambda[m], p[m]');
   beta ~ normal(0, 10);
   alpha ~ normal(0, 10);
+}
+
+generated quantities {
+  int<lower = 0> N[M];
+
+  for (m in 1:M)
+    N[m] = n_mixture_rng(Y[m, ], Max_N, log_lambda[m], p[m]');
 }

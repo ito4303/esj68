@@ -44,3 +44,20 @@ model {
   beta ~ normal(0, 10);
   alpha ~ normal(0, 10);
 }
+
+generated quantities {
+  int<lower = 0, upper = 1> z[M];
+  int<lower = 0, upper = M> N_occ;
+
+  for (m in 1:M) {
+    if (Ysum[m] > 0) {
+      z[m] = 1;
+    } else {
+      real p1 = bernoulli_logit_lpmf(0 | logit_psi[m]);
+      real p2 = bernoulli_logit_lpmf(1 | logit_psi[m])
+                + bernoulli_logit_lpmf(Y[m, ] | logit_p[m, ]);
+      z[m] = bernoulli_rng(exp(p2) / (exp(p1) + exp(p2)));
+    }
+  }
+  N_occ = sum(z);
+}
