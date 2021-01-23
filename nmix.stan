@@ -38,7 +38,9 @@ model {
 
 generated quantities {
   int<lower = 0> N[M];
+  int<lower = 0> Ntotal;
 
   for (m in 1:M)
     N[m] = categorical_rng(softmax(lp[m]')) - 1;
+  Ntotal = sum(N);
 }
