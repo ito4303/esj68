@@ -47,7 +47,7 @@ model {
 
 generated quantities {
   int<lower = 0, upper = 1> z[M];
-  int<lower = 0, upper = M> N_occ;
+  int<lower = 0, upper = M> Nocc;
 
   for (m in 1:M) {
     if (Ysum[m] > 0) {
@@ -59,5 +59,5 @@ generated quantities {
       z[m] = bernoulli_rng(exp(p2) / (exp(p1) + exp(p2)));
     }
   }
-  N_occ = sum(z);
+  Nocc = sum(z);
 }
