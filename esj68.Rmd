@@ -13,6 +13,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(comment = NA)
+knitr::opts_chunk$set(prompt = TRUE)
 library(AHMbook)
 library(unmarked)
 library(rjags)
@@ -57,7 +59,7 @@ occ_data <- AHMbook::simOcc(
   time.effects = c(0, 0), # Time effect
   alpha1 = 0,             # Main effect of elev. on det.
   alpha2 = -3,            # Main effect of wind speed on det.
-  alpha3 = 0,             # Interaction on det. of elev and wind
+  alpha3 = 0,             # Interaction of elev and wind
   sd.lp = 0.5,            # S.D. of random site effects
   b = 0,                  # Behavioral response
   show.plot = FALSE)
@@ -86,11 +88,11 @@ sum(apply(occ_data$y, 1, max))
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
-## plot
+---
 
 \includegraphics[width=11cm]{occ_data-1.pdf}
 
-## plot
+---
 
 \includegraphics[width=11cm]{occ_data-2.pdf}
 
@@ -108,10 +110,26 @@ umf <- unmarkedFrameOccu(
 
 ## unmarkedオブジェクト
 
-```{r occ_unmarked_summary, echo=TRUE}
+```{r occ_unmarked_summary, echo=TRUE, eval=FALSE}
 summary(umf)
 ```
 
+```{r}
+out <- capture.output(summary(umf))
+cat(out[1:11], sep = "\n")
+```
+
+---
+
+```{r}
+cat(out[12:20], sep = "\n")
+```
+
+---
+
+```{r}
+cat(out[21:28], sep = "\n")
+```
 
 ## あてはめ（切片だけのモデル）
 
@@ -193,6 +211,8 @@ summary(fit_occ_jags)$statistics[1:5, ]
 
 ## Stanモデル
 
+`data`ブロックと`transformed data`ブロック
+
 ```{r, message=FALSE}
 model_file <- "occ.stan"
 s <- scan(model_file, what = character(), sep = "\n")
@@ -201,14 +221,26 @@ cat(s[1:13], sep = "\n")
 
 ---
 
+`parameters`ブロックと`transformed parameters`ブロック
+
 ```{r}
 cat(s[14:24], sep = "\n")
 ```
 
 ---
 
+`model`ブロック
+
 ```{r}
 cat(s[25:40], sep = "\n")
+```
+
+---
+
+`generated quantities`ブロック
+
+```{r}
+cat(s[41:55], sep = "\n")
 ```
 
 ## 結果
@@ -245,7 +277,7 @@ fit_occ_stan$print(c("beta", "alpha"))
 set.seed(123)
 ```
 
-```{r nmix_data, echo=TRUE, message=FALSE}
+```{r nmix_data, echo=TRUE, eval=FALSE}
 nmix_data <- AHMbook::simNmix(
   nsites = 120,         # Number of sites
   nvisits = 2,          # Number of visits pre site
@@ -257,6 +289,19 @@ nmix_data <- AHMbook::simNmix(
   show.plots = FALSE)
 ```
 
+---
+
+```{r nmix_data_out, echo=FALSE}
+nmix_data <- AHMbook::simNmix(
+  nsites = 120,         # Number of sites
+  nvisits = 2,          # Number of visits pre site
+  mean.lam = 2,         # Expected abundance
+  mean.p = 0.6,         # Expected detection
+  beta2.lam = 0.5,      # Coef. of site covariate 2
+                        # in abundance model
+  beta.p.survey = 0.8,  # Coef. of survey covariate on p
+  show.plots = FALSE)
+```
 
 # unmarkedによる*N*混合モデルの当てはめ
 
@@ -272,10 +317,28 @@ umf <- unmarkedFramePCount(
 
 ## unmarkedオブジェクト
 
-```{r nmix_unmarked_summary, echo=TRUE}
+```{r nmix_unmarked_summary, echo=TRUE, eval=FALSE}
 summary(umf)
 ```
 
+---
+
+```{r}
+out <- capture.output(summary(umf))
+cat(out[1:11], sep = '\n')
+```
+
+---
+
+```{r}
+cat(out[12:20], sep = '\n')
+```
+
+---
+
+```{r}
+cat(out[21:28], sep = '\n')
+```
 
 ## あてはめ
 
@@ -332,19 +395,17 @@ print(summary(fit_nmix_jags)$statistics[1:4, ])
 
 ## Stan
 
+`data`ブロックと`parameters`ブロック
+
 ```{r, message=FALSE}
 model_file <- "nmix.stan"
 s <- scan(model_file, what = character(), sep = "\n")
-cat(s[1:8], sep = "\n")
+cat(s[1:12], sep = "\n")
 ```
 
 ---
 
-```{r}
-cat(s[9:12], sep = "\n")
-```
-
----
+`transformed parameters`ブロック
 
 ```{r}
 cat(s[13:25], sep = "\n")
@@ -352,11 +413,15 @@ cat(s[13:25], sep = "\n")
 
 ---
 
+`model`ブロック
+
 ```{r}
 cat(s[26:32], sep = "\n")
 ```
 
 ---
+
+`generated quantities`ブロック
 
 ```{r}
 cat(s[33:37], sep = "\n")
@@ -392,6 +457,7 @@ fit_nmix_stan_1$print(c("beta", "alpha"))
 
 ## Reduce Sum による並列化
 
+$N$混合モデルの対数確率を返す関数の定義
 
 ```{r, message=FALSE}
 model_file <- "nmix_rs.stan"
@@ -401,11 +467,15 @@ cat(s[c(1, 12:22)], sep = "\n")
 
 ---
 
+`partial_sum`関数の定義
+
 ```{r}
 cat(s[23:33], sep = "\n")
 ```
 
 ---
+
+$N$混合モデル乱数の関数定義
 
 ```{r}
 cat(s[34:45], sep = "\n")
@@ -413,11 +483,11 @@ cat(s[34:45], sep = "\n")
 
 ---
 
-```{r}
-cat(s[67:73], sep = "\n")
-```
+`model`ブロック
 
----
+```{r}
+cat(s[65:71], sep = "\n")
+```
 
 ```{r nmix_stan_2, include=FALSE}
 output_file <- "nmix_stan2.RDS"
@@ -441,7 +511,7 @@ if (file.exists(output_file) &
 ## 結果
 
 ```{r nmix_stan_2_summary, echo=TRUE}
-fit_nmix_stan_2$summary(c("beta", "alpha"))
+fit_nmix_stan_2$print(c("beta", "alpha"))
 ```
 
 ## 二変量ポアソン分布を使用したモデル化
@@ -453,6 +523,8 @@ cat(s[c(1, 19:33)], sep = "\n")
 ```
 
 ---
+
+`model`ブロック
 
 ```{r}
 cat(s[62:67], sep = "\n")
@@ -479,7 +551,7 @@ if (file.exists(output_file) &
 
 
 ```{r nmix_stan_3_summary, echo=TRUE}
-fit_nmix_stan_3$summary(c("beta", "alpha"))
+fit_nmix_stan_3$print(c("beta", "alpha"))
 ```
 
 ## まとめ
