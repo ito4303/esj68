@@ -27,10 +27,10 @@ options(mc.cores = parallel::detectCores())
 
 - **サイト占有モデル**
     - 模擬データの作成
-    - unmarked, JAGS, Stanによる当てはめ
+    - unmarked, BUGS (JAGS), Stanによる当てはめ
 - ***N*** **混合モデル**
     - 模擬データの作成
-    - unmarked, JAGS, Stanによる当てはめ
+    - unmarked, BUGS (JAGS), Stanによる当てはめ
 
 ## 本日のコード
 
@@ -178,7 +178,7 @@ sum(bup(ranef(fm1), stat = "mean"))
 
 # JAGSによる占有モデルの当てはめ
 
-## JAGSモデル
+## BUGS言語で記述したモデル
 
 ```{r, message=FALSE}
 model_file <- "occ.txt"
@@ -227,7 +227,7 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 # Stanによる占有モデルのあてはめ
 
-## Stanモデル
+## Stanのモデル
 
 `data`ブロックと`transformed data`ブロック
 
@@ -378,7 +378,7 @@ sum(bup(ranef(fm2), stat = "mean"))
 
 # JAGSによる*N*混合モデルの当てはめ
 
-## JAGSモデル
+## BUGS言語で記述したモデル
 
 ```{r, message=FALSE}
 model_file <- "nmix.txt"
@@ -429,7 +429,7 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 # Stanによる*N*混合モデルの当てはめ
 
-## Stanモデル
+## Stanのモデル
 
 `data`ブロックと`parameters`ブロック
 
@@ -542,7 +542,7 @@ fit_nmix_stan_3$print(c("beta", "alpha"))
 
 - unmarked, JAGS, Stan のそれぞれで、サイト占有モデルや$N$混合モデルのあてはめができる。
 - モデル構造が比較的単純なら、unmarkedが簡単。
-- モデルが複雑になると、JAGSやStanによるモデルの記述が必要になるかもしれない。
+- モデルが複雑になると、BUGSやStanによるモデルの記述が必要になるかもしれない。
 - Stanでは、離散パラメータを扱えないが、周辺化消去したり、アルゴリズムを工夫することで、サイト占有モデルや、$N$混合モデルを扱える。
     - ただし、モデルの記述が直感的ではなくなる場合もある。
 
