@@ -168,7 +168,7 @@ modSel(fms)
 
 ## 占有サイト数
 
-経験ベイズによる事後平均値
+経験ベイズによる占有サイト数推定値の事後平均
 
 ```{r, echo=TRUE}
 sum(bup(ranef(fm1), stat = "mean"))
@@ -176,7 +176,7 @@ sum(bup(ranef(fm1), stat = "mean"))
 
 
 
-# JAGSによる占有モデルの当てはめ
+# BUGSによる占有モデルの当てはめ
 
 ## BUGS言語で記述したモデル
 
@@ -193,7 +193,7 @@ cat(s[1:(p - 1)], sep = "\n")
 cat(s[p:length(s)], sep = "\n")
 ```
 
-## 結果
+## JAGSによる推定結果
 
 ```{r occ_jags, include=FALSE}
 set.seed(1)
@@ -367,16 +367,16 @@ fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf, K = 110)
 print(fm2)
 ```
 
-## 総個体数の推定値
+## 総個体数
 
-経験ベイズによる事後平均値
+経験ベイズによる総個体数推定値の事後平均
 
 ```{r}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
 
-# JAGSによる*N*混合モデルの当てはめ
+# BUGSによる*N*混合モデルの当てはめ
 
 ## BUGS言語で記述したモデル
 
@@ -394,7 +394,7 @@ cat(s[p:length(s)], sep = "\n")
 ```
 
 
-## 結果
+## JAGSによる推定結果
 
 ```{r nmix_jags, include=FALSE}
 set.seed(1)
@@ -494,7 +494,14 @@ if (file.exists(output_file) &
 fit_nmix_stan_1$print(c("beta", "alpha", "Ntotal"))
 ```
 
-## 二変量ポアソン分布を使用したモデル化
+## 2変量ポアソン分布を使用したモデル化
+
+- $N$混合モデルは多変量ポアソン(multivariate Poisson)分布に等価(Dennis et al. 2015)
+    - 2回測定の$N$混合モデルは、2変量ポアソン分布でモデル化できる。
+
+---
+
+2変量ポアソン分布の確率質量関数を定義
 
 ```{r, message=FALSE}
 model_file <- "nmix_bp.stan"
