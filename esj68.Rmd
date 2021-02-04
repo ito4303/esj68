@@ -138,13 +138,6 @@ cat(out[21:28], sep = "\n")
 (fm0 <- occu(~ 1  ~ 1, data = umf))
 ```
 
-
-## あてはめ（共変量のあるモデル）
-
-```{r occ_unmarked_fit2, echo=TRUE}
-(fm1 <- occu(~ wind ~ elev + forest, data = umf))
-```
-
 <!--
 ```{r, echo=TRUE}
 #backTransform(fm0, "state")
@@ -157,6 +150,11 @@ cat(out[21:28], sep = "\n")
 ```
 -->
 
+## あてはめ（共変量のあるモデル）
+
+```{r occ_unmarked_fit2, echo=TRUE}
+(fm1 <- occu(~ wind ~ elev + forest, data = umf))
+```
 
 ## モデル選択
 
@@ -169,6 +167,8 @@ modSel(fms)
 ## 占有サイト数
 
 経験ベイズによる占有サイト数推定値の事後平均
+
+<!-- bup: best unbiassed predictor -->
 
 ```{r, echo=TRUE}
 sum(bup(ranef(fm1), stat = "mean"))
