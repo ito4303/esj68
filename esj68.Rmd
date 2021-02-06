@@ -1,7 +1,7 @@
 ---
 title: R, BUGS, Stanによる階層モデルのあてはめ
 author: "伊東宏樹"
-date: "2021-03-21"
+date: "2021-03-17"
 output:
   beamer_presentation:
     latex_engine: lualatex
