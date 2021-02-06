@@ -1,7 +1,7 @@
 ---
 title: R, BUGS, Stanによる階層モデルのあてはめ
 author: "伊東宏樹"
-date: "2021-03-21"
+date: "2021-03-17"
 output:
   beamer_presentation:
     latex_engine: lualatex
@@ -27,10 +27,10 @@ options(mc.cores = parallel::detectCores())
 
 - **サイト占有モデル**
     - 模擬データの作成
-    - unmarked, JAGS, Stanによる当てはめ
+    - unmarked, BUGS (JAGS), Stanによる当てはめ
 - ***N*** **混合モデル**
     - 模擬データの作成
-    - unmarked, JAGS, Stanによる当てはめ
+    - unmarked, BUGS (JAGS), Stanによる当てはめ
 
 ## 本日のコード
 
@@ -138,13 +138,6 @@ cat(out[21:28], sep = "\n")
 (fm0 <- occu(~ 1  ~ 1, data = umf))
 ```
 
-
-## あてはめ（共変量のあるモデル）
-
-```{r occ_unmarked_fit2, echo=TRUE}
-(fm1 <- occu(~ wind ~ elev + forest, data = umf))
-```
-
 <!--
 ```{r, echo=TRUE}
 #backTransform(fm0, "state")
@@ -157,6 +150,11 @@ cat(out[21:28], sep = "\n")
 ```
 -->
 
+## あてはめ（共変量のあるモデル）
+
+```{r occ_unmarked_fit2, echo=TRUE}
+(fm1 <- occu(~ wind ~ elev + forest, data = umf))
+```
 
 ## モデル選択
 
@@ -168,7 +166,9 @@ modSel(fms)
 
 ## 占有サイト数
 
-経験ベイズによる事後平均値
+経験ベイズによる占有サイト数推定値の事後平均
+
+<!-- bup: best unbiassed predictor -->
 
 ```{r, echo=TRUE}
 sum(bup(ranef(fm1), stat = "mean"))
@@ -176,9 +176,9 @@ sum(bup(ranef(fm1), stat = "mean"))
 
 
 
-# JAGSによる占有モデルの当てはめ
+# BUGSによる占有モデルの当てはめ
 
-## JAGSモデル
+## BUGS言語で記述したモデル
 
 ```{r, message=FALSE}
 model_file <- "occ.txt"
@@ -193,7 +193,7 @@ cat(s[1:(p - 1)], sep = "\n")
 cat(s[p:length(s)], sep = "\n")
 ```
 
-## 結果
+## JAGSによる推定結果
 
 ```{r occ_jags, include=FALSE}
 set.seed(1)
@@ -227,7 +227,7 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 # Stanによる占有モデルのあてはめ
 
-## Stanモデル
+## Stanのモデル
 
 `data`ブロックと`transformed data`ブロック
 
@@ -367,18 +367,18 @@ fm2 <- pcount( ~ survey_cov ~ site_cov, data = umf, K = 110)
 print(fm2)
 ```
 
-## 総個体数の推定値
+## 総個体数
 
-経験ベイズによる事後平均値
+経験ベイズによる総個体数推定値の事後平均
 
 ```{r}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
 
-# JAGSによる*N*混合モデルの当てはめ
+# BUGSによる*N*混合モデルの当てはめ
 
-## JAGSモデル
+## BUGS言語で記述したモデル
 
 ```{r, message=FALSE}
 model_file <- "nmix.txt"
@@ -394,7 +394,7 @@ cat(s[p:length(s)], sep = "\n")
 ```
 
 
-## 結果
+## JAGSによる推定結果
 
 ```{r nmix_jags, include=FALSE}
 set.seed(1)
@@ -429,7 +429,7 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 # Stanによる*N*混合モデルの当てはめ
 
-## Stanモデル
+## Stanのモデル
 
 `data`ブロックと`parameters`ブロック
 
@@ -494,7 +494,14 @@ if (file.exists(output_file) &
 fit_nmix_stan_1$print(c("beta", "alpha", "Ntotal"))
 ```
 
-## 二変量ポアソン分布を使用したモデル化
+## 2変量ポアソン分布を使用したモデル化
+
+- $N$混合モデルは多変量ポアソン(multivariate Poisson)分布に等価(Dennis et al. 2015)
+    - 2回測定の$N$混合モデルは、2変量ポアソン分布でモデル化できる。
+
+---
+
+2変量ポアソン分布の確率質量関数を定義
 
 ```{r, message=FALSE}
 model_file <- "nmix_bp.stan"
@@ -542,7 +549,7 @@ fit_nmix_stan_3$print(c("beta", "alpha"))
 
 - unmarked, JAGS, Stan のそれぞれで、サイト占有モデルや$N$混合モデルのあてはめができる。
 - モデル構造が比較的単純なら、unmarkedが簡単。
-- モデルが複雑になると、JAGSやStanによるモデルの記述が必要になるかもしれない。
+- モデルが複雑になると、BUGSやStanによるモデルの記述が必要になるかもしれない。
 - Stanでは、離散パラメータを扱えないが、周辺化消去したり、アルゴリズムを工夫することで、サイト占有モデルや、$N$混合モデルを扱える。
     - ただし、モデルの記述が直感的ではなくなる場合もある。
 
