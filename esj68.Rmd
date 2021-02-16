@@ -41,6 +41,10 @@ https://github.com/ito4303/esj68
 
 # サイト占有モデル
 
+## サイト占有モデル
+
+\includegraphics[width=11cm]{presence-absence.pdf}
+
 ## 模擬データの生成
 
 ```{r set_seed, include=FALSE}
@@ -291,6 +295,12 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 
 
 # *N*混合モデル
+
+## *N*混合モデル
+
+\includegraphics[width=11cm]{N-mixture.pdf}
+
+
 
 ## 模擬データ
 
