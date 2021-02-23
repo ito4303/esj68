@@ -49,5 +49,6 @@ vignettes/*.pdf
 *.log
 
 # PDF files
-*.pdf
-
+# *.pdf
+occ_data*.pdf
+nmix_data*.pdf
