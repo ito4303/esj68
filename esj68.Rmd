@@ -41,7 +41,7 @@ https://github.com/ito4303/esj68
 
 # サイト占有モデル
 
-## サイト占有モデル
+## サイト占有モデルの構造
 
 \includegraphics[width=11cm]{presence-absence.pdf}
 
@@ -52,7 +52,8 @@ set.seed(123)
 ```
 
 
-```{r gen_site_occ_data, echo=TRUE}
+```{r gen_site_occ_data, echo=2, results='hide'}
+pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
 occ_data <- AHMbook::simOcc(
   M = 300,                # Number of sites
   J = 2,                  # Number of temporal replicates
@@ -66,10 +67,9 @@ occ_data <- AHMbook::simOcc(
   alpha2 = -3,            # Main effect of wind speed on det.
   alpha3 = 0,             # Interaction of elev and wind
   sd.lp = 0.5,            # S.D. of random site effects
-  b = 0,                  # Behavioral response
-  show.plot = FALSE)
+  b = 0)                  # Behavioral response
+dev.off()
 ```
-
 
 ## データの確認
 
@@ -95,11 +95,11 @@ head(cbind(z = occ_data$z, occ_data$y))
 
 ---
 
-\includegraphics[width=11cm]{occ_data-1.pdf}
+\includegraphics[width=11cm]{occ_data1.pdf}
 
 ---
 
-\includegraphics[width=11cm]{occ_data-2.pdf}
+\includegraphics[width=11cm]{occ_data2.pdf}
 
 # unmarkedによる占有モデルの当てはめ
 
@@ -296,7 +296,7 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 
 # *N*混合モデル
 
-## *N*混合モデル
+## *N*混合モデルの構造
 
 \includegraphics[width=11cm]{N-mixture.pdf}
 
@@ -308,16 +308,17 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 set.seed(1234)
 ```
 
-```{r nmix_data, echo=TRUE, results='hide'}
+```{r nmix_data, echo=2, results='hide'}
+pdf(file = "nmix_data%0d.pdf", width = 8, height = 6, onefile = FALSE)
 nmix_data <- AHMbook::simNmix(
   nsites = 120,         # Number of sites
-  nvisits = 2,          # Number of visits pre site
+  nvisits = 2,          # Number of visits per site
   mean.lam = 2,         # Expected abundance
   mean.p = 0.6,         # Expected detection
   beta2.lam = 0.5,      # Coef. of site covariate 2
                         # in abundance model
-  beta.p.survey = 0.8,  # Coef. of survey covariate on p
-  show.plots = FALSE)
+  beta.p.survey = 0.8)  # Coef. of survey covariate on p
+dev.off()
 ```
 
 ## データの確認
@@ -333,6 +334,10 @@ head(cbind(N = nmix_data$N, nmix_data$C))
 ```{r}
 sum(nmix_data$N)
 ```
+
+---
+
+\includegraphics[width=11cm]{nmix_data9.pdf}
 
 
 # unmarkedによる*N*混合モデルの当てはめ
@@ -381,7 +386,7 @@ print(fm2)
 
 経験ベイズによる総個体数推定値の事後平均
 
-```{r}
+```{r, echo=TRUE}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
