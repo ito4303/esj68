@@ -1,12 +1,12 @@
 ---
 title: R, BUGS, Stanによる階層モデルのあてはめ
-author: "伊東宏樹"
+author: "伊東宏樹（森林総合研究所北海道支所）"
 date: "2021-03-17"
 output:
   beamer_presentation:
     latex_engine: lualatex
     theme: metropolis
-    keep_tex: true
+    keep_tex: false
     includes:
       in_header: header.tex
 ---
@@ -105,7 +105,7 @@ head(cbind(z = occ_data$z, occ_data$y))
 
 ## unmarkedオブジェクトの作成
 
-```{r occ_unmarked, echo=TRUE, message=FALSE}
+```{r occ_unmarked, echo=TRUE}
 umf <- unmarkedFrameOccu(
   y = occ_data$y,
   siteCovs = data.frame(elev = occ_data$elev,

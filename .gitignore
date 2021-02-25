@@ -45,7 +45,6 @@ vignettes/*.pdf
 *.csv
 
 # TeX files
-*.tex
 *.log
 
 # PDF files
