@@ -57,12 +57,12 @@ pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
 occ_data <- AHMbook::simOcc(
   M = 300,                # Number of sites
   J = 2,                  # Number of temporal replicates
-  mean.occupancy = 0.6,   # Mean occurrence
+  mean.occupancy = 0.6,   # Mean occupancy prob.
   beta1 = -2,             # Main effect of elev. on occ.
   beta2 = 2,              # Main effect of forest on occ.
   beta3 = 0,              # Interaction of elev. and forest
   mean.detection = 0.3,   # Mean detection prob.
-  time.effects = c(0, 0), # Time effect
+  time.effects = c(0, 0), # Time effect on det.
   alpha1 = 0,             # Main effect of elev. on det.
   alpha2 = -3,            # Main effect of wind speed on det.
   alpha3 = 0,             # Interaction of elev and wind
@@ -164,7 +164,7 @@ cat(out[21:28], sep = "\n")
 
 ```{r model_selection, echo=TRUE}
 fms <- fitList('psi(.)p(.)' = fm0,
-               'psi(Wind)p(Elev+Forest)' = fm1)
+               'psi(Elev+Forest)p(Wind)' = fm1)
 modSel(fms)
 ```
 
@@ -172,9 +172,11 @@ modSel(fms)
 
 経験ベイズによる占有サイト数推定値の事後平均
 
+(真値は `r sum(occ_data$z)`)
+
 <!-- bup: best unbiassed predictor -->
 
-```{r, echo=TRUE}
+```{r occ_unmarked_num_occ_sites, echo=TRUE}
 sum(bup(ranef(fm1), stat = "mean"))
 ```
 
@@ -386,7 +388,9 @@ print(fm2)
 
 経験ベイズによる総個体数推定値の事後平均
 
-```{r, echo=TRUE}
+(真値は `r sum(nmix_data$N)`)
+
+```{r nmix_unmarked_N, echo=TRUE}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
@@ -395,7 +399,7 @@ sum(bup(ranef(fm2), stat = "mean"))
 
 ## BUGS言語で記述したモデル
 
-```{r, message=FALSE}
+```{r nmix_bugs_model, message=FALSE}
 model_file <- "nmix.txt"
 s <- scan(model_file, what = character(), sep = "\n")
 p <- str_which(s, "# priors")
@@ -437,7 +441,7 @@ if (file.exists(rdata_file) &
 }
 ```
 
-```{r, echo=TRUE}
+```{r nmix_jags_summary, echo=TRUE}
 print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 ```
 
@@ -448,7 +452,7 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 `data`ブロックと`parameters`ブロック
 
-```{r, message=FALSE}
+```{r nmix_stan_model, message=FALSE}
 model_file <- "nmix.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^transformed parameters")
@@ -518,7 +522,7 @@ fit_nmix_stan_1$print(c("beta", "alpha", "Ntotal"))
 
 2変量ポアソン分布の確率質量関数を定義
 
-```{r, message=FALSE}
+```{r nmix_stan_model3, message=FALSE}
 model_file <- "nmix_bp.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^  real bivariate_poisson")
@@ -557,7 +561,7 @@ if (file.exists(output_file) &
 
 
 ```{r nmix_stan_3_summary, echo=TRUE}
-fit_nmix_stan_3$print(c("beta", "alpha"))
+fit_nmix_stan_3$print(c("beta", "alpha", "Ntotal"))
 ```
 
 ## まとめ
