@@ -186,7 +186,7 @@ sum(bup(ranef(fm1), stat = "mean"))
 
 ## BUGS言語で記述したモデル
 
-```{r, message=FALSE}
+```{r occ_bugs_model}
 model_file <- "occ.txt"
 s <- scan(model_file, what = character(), sep = "\n")
 p <- str_which(s, "# priors")
@@ -237,7 +237,7 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 `data`ブロックと`transformed data`ブロック
 
-```{r, message=FALSE}
+```{r occ_stan_model}
 model_file <- "occ.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^parameters")
@@ -399,7 +399,7 @@ sum(bup(ranef(fm2), stat = "mean"))
 
 ## BUGS言語で記述したモデル
 
-```{r nmix_bugs_model, message=FALSE}
+```{r nmix_bugs_model}
 model_file <- "nmix.txt"
 s <- scan(model_file, what = character(), sep = "\n")
 p <- str_which(s, "# priors")
@@ -452,7 +452,7 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 `data`ブロックと`parameters`ブロック
 
-```{r nmix_stan_model, message=FALSE}
+```{r nmix_stan_model}
 model_file <- "nmix.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^transformed parameters")
@@ -522,7 +522,7 @@ fit_nmix_stan_1$print(c("beta", "alpha", "Ntotal"))
 
 2変量ポアソン分布の確率質量関数を定義
 
-```{r nmix_stan_model3, message=FALSE}
+```{r nmix_stan_model3}
 model_file <- "nmix_bp.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^  real bivariate_poisson")
