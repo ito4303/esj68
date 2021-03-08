@@ -233,6 +233,18 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 # Stanによる占有モデルのあてはめ
 
+## zを消去
+
+あるサイトで観測値$\{Y_1,\dots,Y_{J}\}$が得られる確率
+
+\begin{align*}
+\Pr(\{Y_1,\dots,Y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}) = \\
+&\begin{cases}
+\mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(Y_{j} \mid p_{j}) & (\exists Y_{j} = 1) \\
+\mathrm{Bern}(0 \mid \psi) + \mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(0 \mid p_{j}) & (\forall Y_{j} = 0)
+\end{cases}
+\end{align*}
+
 ## Stanのモデル
 
 `data`ブロックと`transformed data`ブロック
@@ -447,6 +459,17 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 
 # Stanによる*N*混合モデルの当てはめ
+
+## nを消去
+
+あるサイトで観測値$\{Y_1,\dots,Y_{J}\}$が得られる確率
+
+\begin{align*}
+\Pr(\{Y_{1},\dots,Y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
+& \sum_{n=\mathrm{max}(\boldsymbol{Y})}^{\infty}\mathrm{Poisson}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(Y_{j} \mid n, p_{j})
+\end{align*}
+
+
 
 ## Stanのモデル
 
