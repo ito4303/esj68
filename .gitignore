@@ -46,6 +46,11 @@ vignettes/*.pdf
 
 # TeX files
 *.log
+*.aux
+*.nav
+*.snm
+*.toc
+*.vrb
 
 # PDF files
 # *.pdf

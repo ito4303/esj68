@@ -43,7 +43,19 @@ https://github.com/ito4303/esj68
 
 ## サイト占有モデルの構造
 
-\includegraphics[width=11cm]{presence-absence.pdf}
+\includegraphics[width=11cm]{Site_occ.pdf}
+
+## サイト占有モデルの構造
+
+\begin{align*}
+z &\sim \mathrm{Bern}(\psi) \\
+y_j &\sim \mathrm{Bern}(z p_j)
+\end{align*}
+
+- $z$: 在・不在
+- $\psi$: 占有確率
+- $y_j$: $j$回目の観測での検出・不検出
+- $p_j$: $j$回目の観測での検出確率
 
 ## 模擬データの生成
 
@@ -57,12 +69,12 @@ pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
 occ_data <- AHMbook::simOcc(
   M = 300,                # Number of sites
   J = 2,                  # Number of temporal replicates
-  mean.occupancy = 0.6,   # Mean occurrence
+  mean.occupancy = 0.6,   # Mean occupancy prob.
   beta1 = -2,             # Main effect of elev. on occ.
   beta2 = 2,              # Main effect of forest on occ.
   beta3 = 0,              # Interaction of elev. and forest
   mean.detection = 0.3,   # Mean detection prob.
-  time.effects = c(0, 0), # Time effect
+  time.effects = c(0, 0), # Time effect on det.
   alpha1 = 0,             # Main effect of elev. on det.
   alpha2 = -3,            # Main effect of wind speed on det.
   alpha3 = 0,             # Interaction of elev and wind
@@ -164,7 +176,7 @@ cat(out[21:28], sep = "\n")
 
 ```{r model_selection, echo=TRUE}
 fms <- fitList('psi(.)p(.)' = fm0,
-               'psi(Wind)p(Elev+Forest)' = fm1)
+               'psi(Elev+Forest)p(Wind)' = fm1)
 modSel(fms)
 ```
 
@@ -172,19 +184,20 @@ modSel(fms)
 
 経験ベイズによる占有サイト数推定値の事後平均
 
+(真値は `r sum(occ_data$z)`)
+
 <!-- bup: best unbiassed predictor -->
 
-```{r, echo=TRUE}
+```{r occ_unmarked_num_occ_sites, echo=TRUE}
 sum(bup(ranef(fm1), stat = "mean"))
 ```
-
 
 
 # BUGSによる占有モデルの当てはめ
 
 ## BUGS言語で記述したモデル
 
-```{r, message=FALSE}
+```{r occ_bugs_model}
 model_file <- "occ.txt"
 s <- scan(model_file, what = character(), sep = "\n")
 p <- str_which(s, "# priors")
@@ -231,11 +244,24 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 # Stanによる占有モデルのあてはめ
 
+## zを消去
+
+あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+
+\begin{align*}
+\Pr(\{y_1,\dots,y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}\}) = \\
+&\begin{cases}
+\mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(y_{j} \mid p_{j}) & (\exists y_{j} = 1) \\
+\mathrm{Bern}(0 \mid \psi) + \mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(0 \mid p_{j}) & (\forall y_{j} = 0)
+\end{cases}
+\end{align*}
+
 ## Stanのモデル
 
+<!--
 `data`ブロックと`transformed data`ブロック
 
-```{r, message=FALSE}
+```{r occ_stan_model}
 model_file <- "occ.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^parameters")
@@ -252,6 +278,7 @@ cat(s[p1:(p2 - 1)], sep = "\n")
 ```
 
 ---
+-->
 
 `model`ブロック
 
@@ -300,7 +327,17 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 
 \includegraphics[width=11cm]{N-mixture.pdf}
 
+## *N*混合モデルの構造
 
+\begin{align*}
+n &\sim \mathrm{Pois}(\lambda) \\
+y_j &\sim \mathrm{Binom}(n, p_j)
+\end{align*}
+
+- $n$: 真の個体数量
+- $\lambda$: 期待個体数量
+- $y_j$: $j$回目の観測での観測個体数量
+- $p_j$: $j$回目の観測での観測確率
 
 ## 模擬データ
 
@@ -386,7 +423,9 @@ print(fm2)
 
 経験ベイズによる総個体数推定値の事後平均
 
-```{r, echo=TRUE}
+(真値は `r sum(nmix_data$N)`)
+
+```{r nmix_unmarked_N, echo=TRUE}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
@@ -395,7 +434,7 @@ sum(bup(ranef(fm2), stat = "mean"))
 
 ## BUGS言語で記述したモデル
 
-```{r, message=FALSE}
+```{r nmix_bugs_model}
 model_file <- "nmix.txt"
 s <- scan(model_file, what = character(), sep = "\n")
 p <- str_which(s, "# priors")
@@ -437,18 +476,28 @@ if (file.exists(rdata_file) &
 }
 ```
 
-```{r, echo=TRUE}
+```{r nmix_jags_summary, echo=TRUE}
 print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 ```
 
 
 # Stanによる*N*混合モデルの当てはめ
 
+## nを消去
+
+あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+
+\begin{align*}
+\Pr(\{y_{1},\dots,y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
+& \sum_{n=\mathrm{max}(\boldsymbol{y})}^{\infty}\mathrm{Pois}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(y_{j} \mid n, p_{j})
+\end{align*}
+
 ## Stanのモデル
 
+<!--
 `data`ブロックと`parameters`ブロック
 
-```{r, message=FALSE}
+```{r nmix_stan_model}
 model_file <- "nmix.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^transformed parameters")
@@ -456,6 +505,7 @@ cat(s[1:(p1 - 1)], sep = "\n")
 ```
 
 ---
+-->
 
 `transformed parameters`ブロック
 
@@ -518,7 +568,7 @@ fit_nmix_stan_1$print(c("beta", "alpha", "Ntotal"))
 
 2変量ポアソン分布の確率質量関数を定義
 
-```{r, message=FALSE}
+```{r nmix_stan_model3}
 model_file <- "nmix_bp.stan"
 s <- scan(model_file, what = character(), sep = "\n")
 p1 <- str_which(s, "^  real bivariate_poisson")
@@ -557,7 +607,7 @@ if (file.exists(output_file) &
 
 
 ```{r nmix_stan_3_summary, echo=TRUE}
-fit_nmix_stan_3$print(c("beta", "alpha"))
+fit_nmix_stan_3$print(c("beta", "alpha", "Ntotal"))
 ```
 
 ## まとめ
