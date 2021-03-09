@@ -43,7 +43,19 @@ https://github.com/ito4303/esj68
 
 ## サイト占有モデルの構造
 
-\includegraphics[width=11cm]{presence-absence.pdf}
+\includegraphics[width=11cm]{Site_occ.pdf}
+
+## サイト占有モデルの構造
+
+\begin{align*}
+z &\sim \mathrm{Bern}(\psi) \\
+y_j &\sim \mathrm{Bern}(z p_j)
+\end{align*}
+
+- $z$: 在・不在
+- $\psi$: 占有確率
+- $y_j$: $j$回目の観測での検出・不検出
+- $p_j$: $j$回目の観測での検出確率
 
 ## 模擬データの生成
 
@@ -181,7 +193,6 @@ sum(bup(ranef(fm1), stat = "mean"))
 ```
 
 
-
 # BUGSによる占有モデルの当てはめ
 
 ## BUGS言語で記述したモデル
@@ -235,18 +246,19 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 
 ## zを消去
 
-あるサイトで観測値$\{Y_1,\dots,Y_{J}\}$が得られる確率
+あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
 
 \begin{align*}
-\Pr(\{Y_1,\dots,Y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}) = \\
+\Pr(\{y_1,\dots,y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}\}) = \\
 &\begin{cases}
-\mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(Y_{j} \mid p_{j}) & (\exists Y_{j} = 1) \\
-\mathrm{Bern}(0 \mid \psi) + \mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(0 \mid p_{j}) & (\forall Y_{j} = 0)
+\mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(y_{j} \mid p_{j}) & (\exists y_{j} = 1) \\
+\mathrm{Bern}(0 \mid \psi) + \mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(0 \mid p_{j}) & (\forall y_{j} = 0)
 \end{cases}
 \end{align*}
 
 ## Stanのモデル
 
+<!--
 `data`ブロックと`transformed data`ブロック
 
 ```{r occ_stan_model}
@@ -266,6 +278,7 @@ cat(s[p1:(p2 - 1)], sep = "\n")
 ```
 
 ---
+-->
 
 `model`ブロック
 
@@ -314,7 +327,17 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 
 \includegraphics[width=11cm]{N-mixture.pdf}
 
+## *N*混合モデルの構造
 
+\begin{align*}
+n &\sim \mathrm{Pois}(\lambda) \\
+y_j &\sim \mathrm{Binom}(n, p_j)
+\end{align*}
+
+- $n$: 真の個体数量
+- $\lambda$: 期待個体数量
+- $y_j$: $j$回目の観測での観測個体数量
+- $p_j$: $j$回目の観測での観測確率
 
 ## 模擬データ
 
@@ -462,17 +485,16 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 ## nを消去
 
-あるサイトで観測値$\{Y_1,\dots,Y_{J}\}$が得られる確率
+あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
 
 \begin{align*}
-\Pr(\{Y_{1},\dots,Y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
-& \sum_{n=\mathrm{max}(\boldsymbol{Y})}^{\infty}\mathrm{Poisson}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(Y_{j} \mid n, p_{j})
+\Pr(\{y_{1},\dots,y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
+& \sum_{n=\mathrm{max}(\boldsymbol{y})}^{\infty}\mathrm{Pois}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(y_{j} \mid n, p_{j})
 \end{align*}
-
-
 
 ## Stanのモデル
 
+<!--
 `data`ブロックと`parameters`ブロック
 
 ```{r nmix_stan_model}
@@ -483,6 +505,7 @@ cat(s[1:(p1 - 1)], sep = "\n")
 ```
 
 ---
+-->
 
 `transformed parameters`ブロック
 
