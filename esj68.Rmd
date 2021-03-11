@@ -38,6 +38,8 @@ options(mc.cores = parallel::detectCores())
 
 https://github.com/ito4303/esj68
 
+時間の都合で、詳細な説明はできませんので、興味のある方は
+自分で動かしてみてください。
 
 # サイト占有モデル
 
