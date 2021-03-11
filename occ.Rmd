@@ -1,0 +1,242 @@
+---
+title: "サイト占有モデル"
+author: "伊東宏樹"
+date: "2021-03-17"
+output:
+  pdf_document:
+    latex_engine: lualatex
+    includes:
+      in_header: header2.tex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(comment = NA)
+knitr::opts_chunk$set(prompt = TRUE)
+library(stringr)
+library(AHMbook)
+library(unmarked)
+library(rjags)
+library(cmdstanr)
+options(mc.cores = parallel::detectCores())
+```
+
+# サイト占有モデル
+
+## サイト占有モデルの構造
+
+\includegraphics[width=11cm]{Site_occ.pdf}
+
+## サイト占有モデルの構造
+
+\begin{align*}
+z &\sim \mathrm{Bern}(\psi) \\
+y_j &\sim \mathrm{Bern}(z p_j)
+\end{align*}
+
+- $z$: 在・不在
+- $\psi$: 占有確率
+- $y_j$: $j$回目の観測での検出・不検出
+- $p_j$: $j$回目の観測での検出確率
+
+## 模擬データの生成
+
+```{r set_seed, include=FALSE}
+set.seed(123)
+```
+
+
+```{r gen_site_occ_data, echo=2, results='hide'}
+pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
+occ_data <- AHMbook::simOcc(
+  M = 300,                # Number of sites
+  J = 2,                  # Number of temporal replicates
+  mean.occupancy = 0.6,   # Mean occupancy prob.
+  beta1 = -2,             # Main effect of elev. on occ.
+  beta2 = 2,              # Main effect of forest on occ.
+  beta3 = 0,              # Interaction of elev. and forest
+  mean.detection = 0.3,   # Mean detection prob.
+  time.effects = c(0, 0), # Time effect on det.
+  alpha1 = 0,             # Main effect of elev. on det.
+  alpha2 = -3,            # Main effect of wind speed on det.
+  alpha3 = 0,             # Interaction of elev and wind
+  sd.lp = 0.5,            # S.D. of random site effects
+  b = 0)                  # Behavioral response
+dev.off()
+```
+
+## データの確認
+
+真の占有サイト数
+
+```{r view_site_occ_data1, echo=TRUE}
+sum(occ_data$z)
+```
+
+観測された占有サイト数
+
+```{r view_site_occ_data2, echo=TRUE}
+sum(apply(occ_data$y, 1, max))
+```
+
+## データの確認
+
+最初の6サイトの真値と観測値
+
+```{r view_site_occ_data3, echo=TRUE}
+head(cbind(z = occ_data$z, occ_data$y))
+```
+
+\includegraphics[width=11cm]{occ_data1.pdf}
+
+\includegraphics[width=11cm]{occ_data2.pdf}
+
+# unmarkedによる占有モデルの当てはめ
+
+## unmarkedオブジェクトの作成
+
+```{r occ_unmarked, echo=TRUE}
+umf <- unmarkedFrameOccu(
+  y = occ_data$y,
+  siteCovs = data.frame(elev = occ_data$elev,
+                        forest = occ_data$forest),
+  obsCovs = list(wind = occ_data$wind))
+```
+
+## unmarkedオブジェクト
+
+```{r occ_unmarked_summary, echo=TRUE}
+summary(umf)
+```
+
+## あてはめ（切片だけのモデル）
+
+```{r occ_unmarked_fit, echo=TRUE}
+(fm1 <- occu(~ 1  ~ 1, data = umf))
+```
+
+```{r, echo=TRUE}
+backTransform(fm1, "state")
+```
+
+```{r, echo=TRUE}
+backTransform(fm1, "det")
+```
+
+## あてはめ（共変量のあるモデル）
+
+```{r occ_unmarked_fit2, echo=TRUE}
+(fm2 <- occu(~ wind ~ elev + forest, data = umf))
+```
+
+## モデル選択
+
+```{r model_selection, echo=TRUE}
+fms <- fitList('psi(.)p(.)' = fm1,
+               'psi(Elev+Forest)p(Wind)' = fm2)
+modSel(fms)
+```
+
+## 占有サイト数
+
+経験ベイズによる占有サイト数推定値の事後平均
+
+(真値は `r sum(occ_data$z)`)
+
+<!-- bup: best unbiassed predictor -->
+
+```{r occ_unmarked_num_occ_sites, echo=TRUE}
+sum(bup(ranef(fm2), stat = "mean"))
+```
+
+
+# BUGSによる占有モデルの当てはめ
+
+## BUGS言語で記述したモデル
+
+```{r occ_bugs_model}
+model_file <- "occ.txt"
+s <- scan(model_file, what = character(), sep = "\n")
+p <- str_which(s, "# priors")
+cat(s, sep = "\n")
+```
+
+## JAGSによる推定結果
+
+```{r occ_jags, include=FALSE}
+set.seed(1)
+jags_data <- list(M = occ_data$M, J = occ_data$J, y = occ_data$y,
+                  elev = occ_data$elev, forest = occ_data$forest,
+                  wind = occ_data$wind)
+ini_fun <- function() {
+  list(beta = rnorm(3, 0, 2),
+       alpha = rnorm(2, 0, 2),
+       z = rep(1, occ_data$M))
+}
+rdata_file <- "occ_jags.RData"
+if (file.exists(rdata_file) &
+    (file.mtime(rdata_file) > file.mtime(model_file))) {
+  load(rdata_file)
+} else {
+  mod_occ_jags <- jags.model(model_file, data = jags_data,
+                             inits = ini_fun, n.chains = 3)
+  update(mod_occ_jags, 1000)
+  fit_occ_jags <- coda.samples(mod_occ_jags, n.iter = 1000,
+                               variable.names = c("beta", "alpha",
+                                                  "Nocc", "z"))
+  save(fit_occ_jags, file = rdata_file)
+}
+```
+
+```{r occ_jags_summary, echo=TRUE}
+print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
+```
+
+
+# Stanによる占有モデルのあてはめ
+
+## zを消去
+
+あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+
+\begin{align*}
+\Pr(\{y_1,\dots,y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}\}) = \\
+&\begin{cases}
+\mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(y_{j} \mid p_{j}) & (\exists y_{j} = 1) \\
+\mathrm{Bern}(0 \mid \psi) + \mathrm{Bern}(1 \mid \psi) \prod_{j=1}^{J}\mathrm{Bern}(0 \mid p_{j}) & (\forall y_{j} = 0)
+\end{cases}
+\end{align*}
+
+## Stanのモデル
+
+```{r occ_stan_model}
+model_file <- "occ.stan"
+s <- scan(model_file, what = character(), sep = "\n")
+p1 <- str_which(s, "^parameters")
+cat(s, sep = "\n")
+```
+
+## 結果
+
+```{r occ_stan, include=FALSE}
+output_file <- "occ_stan.RDS"
+if (file.exists(output_file) &
+    file.mtime(output_file) > file.mtime(model_file)) {
+  fit_occ_stan <- readRDS(output_file)
+} else {
+  stan_data <- list(M = occ_data$M, J = occ_data$J, Y = occ_data$y,
+                    Elev = occ_data$elev, Forest = occ_data$forest,
+                    Wind = occ_data$wind)
+  mod_occ_stan <- cmdstan_model(model_file)
+  fit_occ_stan <- mod_occ_stan$sample(data = stan_data, seed = 1,
+                                      chains = 4, parallel_chains = 4,
+                                      iter_sampling = 1000,
+                                      iter_warmup = 1000,
+                                    refresh = 500)
+  fit_occ_stan$save_object(output_file)
+}
+```
+
+```{r occ_stan_summary, echo=TRUE}
+fit_occ_stan$print(c("beta", "alpha", "Nocc"))
+```
