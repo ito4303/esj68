@@ -7,11 +7,13 @@ output:
     latex_engine: lualatex
     includes:
       in_header: header2.tex
+documentclass: ltjsarticle
+classoption: a4paper
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(comment = NA)
+knitr::opts_chunk$set(comment = '#')
 knitr::opts_chunk$set(prompt = TRUE)
 library(stringr)
 library(AHMbook)
@@ -41,13 +43,9 @@ y_j &\sim \mathrm{Bern}(z p_j)
 
 ## 模擬データの生成
 
-```{r set_seed, include=FALSE}
-set.seed(123)
-```
-
-
-```{r gen_site_occ_data, echo=2, results='hide'}
+```{r gen_site_occ_data, echo=2:3, results='hide'}
 pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
+set.seed(123)
 occ_data <- AHMbook::simOcc(
   M = 300,                # Number of sites
   J = 2,                  # Number of temporal replicates
@@ -78,8 +76,6 @@ sum(occ_data$z)
 ```{r view_site_occ_data2, echo=TRUE}
 sum(apply(occ_data$y, 1, max))
 ```
-
-## データの確認
 
 最初の6サイトの真値と観測値
 
