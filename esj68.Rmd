@@ -49,17 +49,22 @@ https://github.com/ito4303/esj68
 
 \includegraphics[width=11cm]{N-mixture.pdf}
 
-
+<!--
+- 真の個体数量Nは観測されない。
+- Nの期待値がλ。
+- サイトごとに何回か観測を繰り返し、観測値Cが得られる。
+- NのうちC個体が観測される。発見確率はp。
+-->
 
 ## *N*混合モデルの構造
 
 \begin{align*}
-N_i &\sim \mathrm{Pois}(\lambda) \\
-C_{ij} &\sim \mathrm{Binom}(N_i, p)
+N_i &\sim \mathrm{Pois}(\lambda_i) \\
+C_{ij} &\sim \mathrm{Binom}(N_i, p_{ij})
 \end{align*}
 
 - $N_i$: サイト$i$における真の個体数量
-- $\lambda$: 期待個体数量
+- $\lambda_i$: サイト$i$における期待個体数量
 - $C_{ij}$: サイト$i$における$j$回目の観測での観測値
 - $p_{ij}$: サイト$i$における$j$回目の観測での観測確率
 
@@ -82,6 +87,12 @@ nmix_data <- AHMbook::simNmix(
 dev.off()
 ```
 
+<!--
+- 120サイトで、各サイトごとに2回の繰り返し観測
+- 期待個体数量は2で、サイト共変量の係数が0.5
+- 期待検出確率は0.6で、観測共変量の係数が0.8
+-->
+
 ## データの確認
 
 最初の6サイトの真値と観測値
@@ -89,6 +100,10 @@ dev.off()
 ```{r}
 head(cbind(N = nmix_data$N, nmix_data$C))
 ```
+
+<!--
+最初の列が真の個体数量
+-->
 
 総個体数
 
@@ -243,7 +258,7 @@ print(summary(fit_nmix_jags)$statistics, digits = 2)
 
 # Stanによる*N*混合モデルの当てはめ
 
-## nを消去
+## Nを消去
 
 あるサイトで観測値$\symbf{C}=\{C_1,\dots,C_{J}\}$が得られる確率
 
