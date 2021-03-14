@@ -237,7 +237,7 @@ if (file.exists(rdata_file) &
 ```
 
 ```{r nmix_jags_summary, echo=TRUE}
-print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
+print(summary(fit_nmix_jags)$statistics, digits = 2)
 ```
 
 
@@ -245,11 +245,11 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 ## nを消去
 
-あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+あるサイトで観測値$\symbf{C}=\{C_1,\dots,C_{J}\}$が得られる確率
 
 \begin{align*}
-\Pr(\{y_{1},\dots,y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
-& \sum_{n=\mathrm{max}(\boldsymbol{y})}^{\infty}\mathrm{Pois}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(y_{j} \mid n, p_{j})
+\Pr(\symbf{C} &\mid \lambda, \symbf{p}) =
+  \sum_{k=\mathrm{max}(\symbf{C})}^{\infty}\mathrm{Pois}(k \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(C_{j} \mid k, p_{j})
 \end{align*}
 
 ## Stanのモデル
