@@ -332,14 +332,14 @@ fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 ## *N*混合モデルの構造
 
 \begin{align*}
-n &\sim \mathrm{Pois}(\lambda) \\
-y_j &\sim \mathrm{Binom}(n, p_j)
+N_{i} &\sim \mathrm{Pois}(\lambda_{i}) \\
+C_{ij} &\sim \mathrm{Binom}(N_{i}, p_{ij})
 \end{align*}
 
-- $n$: 真の個体数量
-- $\lambda$: 期待個体数量
-- $y_j$: $j$回目の観測での観測個体数量
-- $p_j$: $j$回目の観測での観測確率
+- $N$: サイト$i$の真の個体数量
+- $\lambda_{i}$: サイト$i$の期待個体数量
+- $C_{ij}$: サイト$i$の$j$回目の観測での観測値
+- $p_{ij}$: サイト$i$の$j$回目の観測での観測確率
 
 ## 模擬データ
 
@@ -455,13 +455,13 @@ cat(s[p:length(s)], sep = "\n")
 ```{r nmix_jags, include=FALSE}
 set.seed(1)
 jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
-                  y = nmix_data$C,
+                  C = nmix_data$C,
                   cov.abn = nmix_data$site.cov[, 2],
                   cov.det = nmix_data$survey.cov)
 ini_fun <- function() {
   list(beta = rnorm(2, 0, 2),
        alpha = rnorm(2, 0, 2),
-       n = apply(nmix_data$C, 1, max))
+       N = apply(nmix_data$C, 1, max))
 }
 rdata_file <- "nmix_jags.RData"
 if (file.exists(rdata_file) &
@@ -473,30 +473,29 @@ if (file.exists(rdata_file) &
   update(mod_nmix_jags, 1000)
   fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
                                 variable.names = c("beta", "alpha",
-                                                   "Ntotal", "n"))
+                                                   "Ntotal"))
   save(fit_nmix_jags, file = rdata_file)
 }
 ```
 
 ```{r nmix_jags_summary, echo=TRUE}
-print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
+print(summary(fit_nmix_jags)$statistics, digits = 2)
 ```
 
 
 # Stanによる*N*混合モデルの当てはめ
 
-## nを消去
+## Nを消去
 
-あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+あるサイトで観測値$\{C_1,\dots,C_{J}\}$が得られる確率
 
 \begin{align*}
-\Pr(\{y_{1},\dots,y_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
-& \sum_{n=\mathrm{max}(\boldsymbol{y})}^{\infty}\mathrm{Pois}(n \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(y_{j} \mid n, p_{j})
+\Pr(\{C_{1},\dots,C_{J}\} &\mid \lambda, \{p_{1},\dots,p_{J}\}) = \\
+& \sum_{k=\mathrm{max}(\symbf{C})}^{\infty}\mathrm{Pois}(k \mid \lambda)\prod_{j=1}^{J}\mathrm{Binom}(C_{j} \mid k, p_{j})
 \end{align*}
 
 ## Stanのモデル
 
-<!--
 `data`ブロックと`parameters`ブロック
 
 ```{r nmix_stan_model}
@@ -507,7 +506,6 @@ cat(s[1:(p1 - 1)], sep = "\n")
 ```
 
 ---
--->
 
 `transformed parameters`ブロック
 
@@ -538,10 +536,10 @@ cat(s[p3:length(s)], sep = "\n")
 ```{r nmix_stan_1, include=FALSE}
 output_file <- "nmix_stan1.RDS"
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
-                  Y = nmix_data$C,
+                  C = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
-                  Max_N = max(nmix_data$C) + 100)
+                  K = max(nmix_data$C) + 100)
 if (file.exists(output_file) &
     file.mtime(output_file) > file.mtime(model_file)) {
   fit_nmix_stan_1 <- readRDS(output_file)
