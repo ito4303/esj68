@@ -1,14 +1,19 @@
 # R, BUGS, Stanによる階層モデルのあてはめ
+
 日本生態学会第68回大会における自由集会[「階層モデリングの実践：統計モデルを生態研究と管理・保全に活用する」](https://esj.ne.jp/meeting/abst/68/W02.html)での講演[「R, BUGS, Stanによる階層モデルのあてはめ」](https://esj.ne.jp/meeting/abst/68/W02-3.html)の発表資料および実行コード (R Markdown形式)
+
+## 投影資料
+
+- R, BUGS, Stanによる階層モデルのあてはめ（準備中）
 
 ## ファイル
 
 - esj68.Rmd: 発表スライドのR Markdownファイル
     - nmix.txt: *N*混合モデルのBUGSモデルファイル
     - nmix.stan: *N*混合モデルのStanモデルファイル
-    - nmix_rs.stan: *N*混合モデルのStanモデルファイル（`reduse_sum`による並列化。今回は使用せず）
+    - nmix_rs.stan: *N*混合モデルのStanモデルファイル（`reduce_sum`による並列化。今回は使用せず）
     - nmix_bp.stan: *N*混合モデルのStanモデルファイル（2変量ポアソン分布によるモデル化）
-- occ.Rmd: サイト占有モデルのR Markdownファイル
+- occ.Rmd: サイト占有モデルのR Markdownファイル（発表で割愛した分）
     - occ.txt:サイト占有モデルのBUGSモデルファイル
     - occ.stan: サイト占有モデルのStanモデルファイル
 

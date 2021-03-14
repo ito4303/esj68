@@ -29,7 +29,12 @@ options(mc.cores = parallel::detectCores())
 
 \includegraphics[width=11cm]{Site_occ.pdf}
 
-## サイト占有モデルの構造
+- 潜在状態: 在(1個体以上が存在，$z=1$)あるいは不在($z=0$)，占有確率は$\psi$
+- 観測過程: 潜在状態が在($z=1$)なら，検出確率$p$に応じて検出($y=1$)または不検出($y=0$)，潜在状態が不在($z=0$)なら，必ず不検出($y=0$)
+
+## 数式による表記
+
+各サイトについて:
 
 \begin{align*}
 z &\sim \mathrm{Bern}(\psi) \\
@@ -42,6 +47,12 @@ y_j &\sim \mathrm{Bern}(z p_j)
 - $p_j$: $j$回目の観測での検出確率
 
 ## 模擬データの生成
+
+`AHMbook`パッケージの`simOcc`関数により，模擬データを作成する。
+ここでは，300サイト，各サイトで2回の観測をおこなうとする。
+平均占有確率は0.6とし，標高による効果を-2，森林被覆率による効果を2とする。
+平均検出確率は0.3とし，風速による効果を-3とする。
+また，サイトによる変量効果の標準偏差は0.5とする。
 
 ```{r gen_site_occ_data, echo=2:3, results='hide'}
 pdf(file = "occ_data%0d.pdf", width = 9, height = 6, onefile = FALSE)
@@ -63,6 +74,13 @@ occ_data <- AHMbook::simOcc(
 dev.off()
 ```
 
+`show.plot`引数を`TRUE`にすると（デフォルト），以下のような図が表示される。
+
+\includegraphics[width=11cm]{occ_data1.pdf}
+
+\includegraphics[width=11cm]{occ_data2.pdf}
+
+
 ## データの確認
 
 真の占有サイト数
@@ -83,13 +101,11 @@ sum(apply(occ_data$y, 1, max))
 head(cbind(z = occ_data$z, occ_data$y))
 ```
 
-\includegraphics[width=11cm]{occ_data1.pdf}
-
-\includegraphics[width=11cm]{occ_data2.pdf}
-
 # unmarkedによる占有モデルの当てはめ
 
 ## unmarkedオブジェクトの作成
+
+占有モデルには`unmarkedFrameOccu`関数でオブジェクトを作成する。
 
 ```{r occ_unmarked, echo=TRUE}
 umf <- unmarkedFrameOccu(
@@ -99,7 +115,7 @@ umf <- unmarkedFrameOccu(
   obsCovs = list(wind = occ_data$wind))
 ```
 
-## unmarkedオブジェクト
+オブジェクトの要約を表示する。
 
 ```{r occ_unmarked_summary, echo=TRUE}
 summary(umf)
@@ -107,9 +123,14 @@ summary(umf)
 
 ## あてはめ（切片だけのモデル）
 
+モデル式の前半は観測モデル，後半は過程モデル（占有状態）。
+ここではまず，両者とも切片のみのモデルをあてはめる。
+
 ```{r occ_unmarked_fit, echo=TRUE}
 (fm1 <- occu(~ 1  ~ 1, data = umf))
 ```
+
+推定値はロジットスケールだが，切片のみのモデルでは，`backTransform`関数で確率スケールの値が表示される。
 
 ```{r, echo=TRUE}
 backTransform(fm1, "state")
@@ -121,11 +142,15 @@ backTransform(fm1, "det")
 
 ## あてはめ（共変量のあるモデル）
 
+観測モデルの係数に風速(`wind`)，過程モデルの係数に標高(`elev`)と森林被覆率(`forest`)を指定する。
+
 ```{r occ_unmarked_fit2, echo=TRUE}
 (fm2 <- occu(~ wind ~ elev + forest, data = umf))
 ```
 
 ## モデル選択
+
+`modeSel`関数により，AICによるモデル選択が可能。
 
 ```{r model_selection, echo=TRUE}
 fms <- fitList('psi(.)p(.)' = fm1,
@@ -135,20 +160,20 @@ modSel(fms)
 
 ## 占有サイト数
 
-経験ベイズによる占有サイト数推定値の事後平均
-
-(真値は `r sum(occ_data$z)`)
-
-<!-- bup: best unbiassed predictor -->
+各サイトの占有状態は，離散変量効果として扱われている。
+経験ベイズによる占有サイト数推定値の事後平均を求める（真値は `r sum(occ_data$z)`）。
 
 ```{r occ_unmarked_num_occ_sites, echo=TRUE}
 sum(bup(ranef(fm2), stat = "mean"))
 ```
 
+`bup`は，“best unbiassed predictor”。
 
 # BUGSによる占有モデルの当てはめ
 
 ## BUGS言語で記述したモデル
+
+数式による表記をほぼそのままBUGS言語で表現している。
 
 ```{r occ_bugs_model}
 model_file <- "occ.txt"
@@ -188,12 +213,14 @@ if (file.exists(rdata_file) &
 print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 ```
 
+unmarkedとほぼ同様の結果が得られた。
 
 # Stanによる占有モデルのあてはめ
 
 ## zを消去
 
-あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率
+Stanでは離散パラメータ（ここでは$z$）を扱えないので，これを消去してモデル化する。
+具体的には，あるサイトで観測値$\{y_1,\dots,y_{J}\}$が得られる確率は以下の式なので，これをモデル化する。
 
 \begin{align*}
 \Pr(\{y_1,\dots,y_{J}\} &\mid \psi, \{p_1,\dots,p_{J}\}) = \\
@@ -204,6 +231,8 @@ print(summary(fit_occ_jags)$statistics[1:6, ], digits = 2)
 \end{align*}
 
 ## Stanのモデル
+
+上の式をStanで記述する。
 
 ```{r occ_stan_model}
 model_file <- "occ.stan"
@@ -236,3 +265,5 @@ if (file.exists(output_file) &
 ```{r occ_stan_summary, echo=TRUE}
 fit_occ_stan$print(c("beta", "alpha", "Nocc"))
 ```
+
+unmarkedおよびJAGSとほぼ同様の結果が得られた。
