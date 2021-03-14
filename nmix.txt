@@ -1,10 +1,10 @@
 model {
   for (m in 1:M) {
     log(lambda[m]) <- beta[1] + beta[2] * cov.abn[m]
-    n[m] ~ dpois(lambda[m])
+    N[m] ~ dpois(lambda[m])
     for (j in 1:J) {
       logit(p[m, j]) <- alpha[1] + alpha[2] * cov.det[m, j]
-      y[m, j] ~ dbin(p[m, j], n[m])
+      C[m, j] ~ dbin(p[m, j], N[m])
     }
   }
   # priors
@@ -15,5 +15,5 @@ model {
     alpha[i] ~ dnorm(0, 1.0e-2)
   }
   # derived quantities
-  Ntotal <- sum(n)
+  Ntotal <- sum(N)
 }

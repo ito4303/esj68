@@ -49,17 +49,19 @@ https://github.com/ito4303/esj68
 
 \includegraphics[width=11cm]{N-mixture.pdf}
 
+
+
 ## *N*混合モデルの構造
 
 \begin{align*}
-n &\sim \mathrm{Pois}(\lambda) \\
-y_j &\sim \mathrm{Binom}(n, p_j)
+N_i &\sim \mathrm{Pois}(\lambda) \\
+C_{ij} &\sim \mathrm{Binom}(N_i, p)
 \end{align*}
 
-- $n$: 真の個体数量
+- $N_i$: サイト$i$における真の個体数量
 - $\lambda$: 期待個体数量
-- $y_j$: $j$回目の観測での観測個体数量
-- $p_j$: $j$回目の観測での観測確率
+- $C_{ij}$: サイト$i$における$j$回目の観測での観測値
+- $p_{ij}$: サイト$i$における$j$回目の観測での観測確率
 
 ## 模擬データ
 
@@ -211,13 +213,13 @@ cat(s[p:length(s)], sep = "\n")
 ```{r nmix_jags, include=FALSE}
 set.seed(1)
 jags_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
-                  y = nmix_data$C,
+                  C = nmix_data$C,
                   cov.abn = nmix_data$site.cov[, 2],
                   cov.det = nmix_data$survey.cov)
 ini_fun <- function() {
   list(beta = rnorm(2, 0, 2),
        alpha = rnorm(2, 0, 2),
-       n = apply(nmix_data$C, 1, max))
+       N = apply(nmix_data$C, 1, max))
 }
 rdata_file <- "nmix_jags.RData"
 if (file.exists(rdata_file) &
@@ -229,7 +231,7 @@ if (file.exists(rdata_file) &
   update(mod_nmix_jags, 1000)
   fit_nmix_jags <- coda.samples(mod_nmix_jags, n.iter = 2000,
                                 variable.names = c("beta", "alpha",
-                                                   "Ntotal", "n"))
+                                                   "Ntotal"))
   save(fit_nmix_jags, file = rdata_file)
 }
 ```
@@ -252,7 +254,6 @@ print(summary(fit_nmix_jags)$statistics[1:5, ], digits = 2)
 
 ## Stanのモデル
 
-<!--
 `data`ブロックと`parameters`ブロック
 
 ```{r nmix_stan_model}
@@ -263,7 +264,6 @@ cat(s[1:(p1 - 1)], sep = "\n")
 ```
 
 ---
--->
 
 `transformed parameters`ブロック
 
@@ -294,10 +294,10 @@ cat(s[p3:length(s)], sep = "\n")
 ```{r nmix_stan_1, include=FALSE}
 output_file <- "nmix_stan1.RDS"
 stan_data <- list(M = nmix_data$nsites, J = nmix_data$nvisits,
-                  Y = nmix_data$C,
+                  C = nmix_data$C,
                   Cov_abn = nmix_data$site.cov[, 2],
                   Cov_det = nmix_data$survey.cov,
-                  Max_N = max(nmix_data$C) + 100)
+                  K = max(nmix_data$C) + 100)
 if (file.exists(output_file) &
     file.mtime(output_file) > file.mtime(model_file)) {
   fit_nmix_stan_1 <- readRDS(output_file)
