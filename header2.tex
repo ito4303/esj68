@@ -1,0 +1,12 @@
+%% PDFメタデータの文字化け防止
+% https://blog.miz-ar.info/2015/09/latex-hyperref-tips/
+% https://tex.stackexchange.com/questions/24445/hyperref-lualatex-and-unicode-bookmarks-issue-garbled-page-numbers-in-ar-for-l
+\hypersetup{%
+  pdfencoding=auto
+}
+
+%% Font settings
+\usepackage{unicode-math}
+\unimathsetup{math-style=ISO,bold-style=ISO}
+\setmathfont{texgyrepagella-math.otf}
+\usepackage[deluxe,noto-otf]{luatexja-preset}

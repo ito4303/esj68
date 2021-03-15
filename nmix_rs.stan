@@ -52,10 +52,10 @@ functions {
 data {
   int<lower = 0> M;
   int<lower = 0> J;
-  int<lower = 0> Y[M, J];
+  int<lower = 0> C[M, J];
   vector[M] Cov_abn;
   matrix[M, J] Cov_det;
-  int<lower = 0> Max_N;
+  int<lower = 0> K;
 }
 
 transformed data {
@@ -75,7 +75,7 @@ transformed parameters {
 model {
   int grainsize = 1;
 
-  target += reduce_sum(partial_sum, site, grainsize, Y, Max_N,
+  target += reduce_sum(partial_sum, site, grainsize, C, K,
                        log_lambda, logit_p);
   beta ~ normal(0, 10);
   alpha ~ normal(0, 10);
@@ -86,6 +86,6 @@ generated quantities {
   int<lower = 0> Ntotal;
 
   for (m in 1:M)
-    N[m] = n_mixture_rng(Y[m, ], Max_N, log_lambda[m], logit_p[m]');
+    N[m] = n_mixture_rng(C[m, ], K, log_lambda[m], logit_p[m]');
   Ntotal = sum(N);
 }
