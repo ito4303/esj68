@@ -49,7 +49,7 @@ functions {
 
 data {
   int<lower = 0> M;
-  int<lower = 0> J;
+  int<lower = 2, upper = 2> J; // J must be 2 in this model
   int<lower = 0> C[M, J];
   vector[M] Cov_abn;
   matrix[M, J] Cov_det;
