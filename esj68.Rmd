@@ -258,9 +258,11 @@ print(summary(fit_nmix_jags)$statistics, digits = 2)
 
 # Stanによる*N*混合モデルの当てはめ
 
-## Nを消去
+## $N$を消去
 
-あるサイトで観測値$\symbf{C}=\{C_1,\dots,C_{J}\}$が得られる確率
+Stanでは離散パラメータを扱えないので、$N$を消去する。
+
+あるサイトで観測値$\symbf{C}=\{C_1,\dots,C_{J}\}$が得られる確率:
 
 \begin{align*}
 \Pr(\symbf{C} &\mid \lambda, \symbf{p}) =
