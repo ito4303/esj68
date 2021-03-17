@@ -2,9 +2,9 @@
 
 日本生態学会第68回大会における自由集会[「階層モデリングの実践：統計モデルを生態研究と管理・保全に活用する」](https://esj.ne.jp/meeting/abst/68/W02.html)での講演[「R, BUGS, Stanによる階層モデルのあてはめ」](https://esj.ne.jp/meeting/abst/68/W02-3.html)の発表資料および実行コード (R Markdown形式)
 
-## 投影資料
+## 発表ファイル
 
-- R, BUGS, Stanによる階層モデルのあてはめ（準備中）
+- figshareで公開しています。[doi:10.6084/m9.figshare.14229572.v1](https://doi.org/10.6084/m9.figshare.14229572.v1)
 
 ## ファイル
 
